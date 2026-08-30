@@ -119,6 +119,18 @@ export function styleToBootstrapClasses(style: NodeStyle, node: CanvasNode): str
     classes.push('shadow');
   }
 
+  // Sizing
+  if (style.sizingPreset === 'hero') {
+    classes.push('w-100', 'min-vh-100');
+  } else if (style.sizingPreset === 'banner') {
+    classes.push('w-100');
+  } else if (style.sizingPreset === 'contained') {
+    classes.push('container');
+  } else {
+    if (style.widthUnit === '%') classes.push('w-100');
+    if (style.heightUnit === 'vh' || style.heightUnit === 'min-vh') classes.push('min-vh-100');
+  }
+
   // Typography
   if (node.type === 'text') {
     if (style.fontSize >= 32) classes.push('display-5');

@@ -387,6 +387,58 @@ export const PropertyInspector: React.FC = () => {
                   </select>
                 </div>
 
+                {/* PRESET BEHAVIOR / SIZING */}
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-0.5">Preset Sizing / Behavior</label>
+                  <select
+                    value={style.sizingPreset || 'custom'}
+                    onChange={(e) => {
+                      const preset = e.target.value as any;
+                      if (preset === 'hero') {
+                        updateNodeStyle(selectedNode.id, {
+                          sizingPreset: 'hero',
+                          widthUnit: '%',
+                          heightUnit: 'min-vh',
+                          customWidthVal: 100,
+                          customHeightVal: 100,
+                        });
+                        updateNodeGeometry(selectedNode.id, selectedNode.x, selectedNode.y, selectedNode.width, Math.max(selectedNode.height, 650));
+                      } else if (preset === 'banner') {
+                        updateNodeStyle(selectedNode.id, {
+                          sizingPreset: 'banner',
+                          widthUnit: '%',
+                          heightUnit: 'auto',
+                          customWidthVal: 100,
+                        });
+                      } else if (preset === 'contained') {
+                        updateNodeStyle(selectedNode.id, {
+                          sizingPreset: 'contained',
+                          widthUnit: '%',
+                          maxWidth: 1200,
+                        });
+                      } else if (preset === 'fit-content') {
+                        updateNodeStyle(selectedNode.id, {
+                          sizingPreset: 'fit-content',
+                          widthUnit: 'auto',
+                        });
+                      } else {
+                        updateNodeStyle(selectedNode.id, {
+                          sizingPreset: 'custom',
+                          widthUnit: 'px',
+                          heightUnit: 'px',
+                        });
+                      }
+                    }}
+                    className={selectClass}
+                  >
+                    <option value="custom">Default (Fixed / Custom)</option>
+                    <option value="hero">Full Screen Hero (100% × 100vh)</option>
+                    <option value="banner">Full Width Banner (100% × Auto)</option>
+                    <option value="contained">Contained Section (100% Max-Width)</option>
+                    <option value="fit-content">Fit Content (Otomatis Isi)</option>
+                  </select>
+                </div>
+
                 {/* DEVICE SIZE TEMPLATES FOR WRAPPER UTAMA */}
                 {(selectedNode.frameRole === 'wrapper' || (!selectedNode.frameRole && !selectedNode.parentId)) && (
                   <div className={`mt-2 pt-2 border-t flex flex-col gap-1.5 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
@@ -483,59 +535,232 @@ export const PropertyInspector: React.FC = () => {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 mt-1">
-                <div>
-                  <label className="text-[10px] text-slate-500 block mb-0.5">
-                    {posMode === 'relative' ? 'Offset X / Left' : 'X / Left'} (px)
-                  </label>
-                  <input
-                    type="number"
-                    disabled={isStatic || posMode === 'sticky'}
-                    value={selectedNode.x}
-                    onChange={(e) => updateNodeGeometry(selectedNode.id, Number(e.target.value), selectedNode.y, selectedNode.width, selectedNode.height)}
-                    className={`${inputClass} ${(isStatic || posMode === 'sticky') ? 'opacity-40 cursor-not-allowed' : ''}`}
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-500 block mb-0.5">
-                    {posMode === 'relative' ? 'Offset Y / Top' : 'Y / Top'} (px)
-                  </label>
-                  <input
-                    type="number"
-                    disabled={isStatic || posMode === 'sticky'}
-                    value={selectedNode.y}
-                    onChange={(e) => updateNodeGeometry(selectedNode.id, selectedNode.x, Number(e.target.value), selectedNode.width, selectedNode.height)}
-                    className={`${inputClass} ${(isStatic || posMode === 'sticky') ? 'opacity-40 cursor-not-allowed' : ''}`}
-                  />
-                </div>
-              </div>
+              {!isStatic && (
+                <div className="mt-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] text-slate-500 font-medium">
+                      {posMode === 'sticky' ? 'Sticky Threshold & Offset' : 'Position Offsets (T, R, B, L)'} (px)
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1">
+                    <div>
+                      <input
+                        type="number"
+                        placeholder="Top"
+                        title={posMode === 'sticky' ? 'Sticky Top (Batas Menempel Atas)' : 'Top Offset'}
+                        value={style.top !== undefined ? style.top : (posMode === 'sticky' ? 0 : (posMode === 'relative' || posMode === 'absolute' || posMode === 'fixed' ? selectedNode.y : ''))}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? undefined : Number(e.target.value);
+                          updateNodeStyle(selectedNode.id, { top: val });
+                          if (val !== undefined && (posMode === 'relative' || posMode === 'absolute')) {
+                            updateNodeGeometry(selectedNode.id, selectedNode.x, val, selectedNode.width, selectedNode.height);
+                          }
+                        }}
+                        className={inputClass}
+                      />
+                      <span className="text-[9px] text-slate-500 block text-center mt-0.5">Top</span>
+                    </div>
 
-              {posMode === 'sticky' && (
-                <div className="text-[10px] text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 rounded-md p-2 flex items-center gap-1.5 mt-0.5">
-                  <span>📌</span>
-                  <span>Elemen <strong>Sticky</strong> akan otomatis mengikuti alur flexbox dan menempel di bagian atas saat halaman di-scroll.</span>
+                    <div>
+                      <input
+                        type="number"
+                        placeholder="Right"
+                        title="Right Offset"
+                        value={style.right !== undefined ? style.right : ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? undefined : Number(e.target.value);
+                          updateNodeStyle(selectedNode.id, { right: val });
+                        }}
+                        className={inputClass}
+                      />
+                      <span className="text-[9px] text-slate-500 block text-center mt-0.5">Right</span>
+                    </div>
+
+                    <div>
+                      <input
+                        type="number"
+                        placeholder="Bottom"
+                        title={posMode === 'sticky' ? 'Sticky Bottom (Batas Menempel Bawah)' : 'Bottom Offset'}
+                        value={style.bottom !== undefined ? style.bottom : ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? undefined : Number(e.target.value);
+                          updateNodeStyle(selectedNode.id, { bottom: val });
+                        }}
+                        className={inputClass}
+                      />
+                      <span className="text-[9px] text-slate-500 block text-center mt-0.5">Bottom</span>
+                    </div>
+
+                    <div>
+                      <input
+                        type="number"
+                        placeholder="Left"
+                        title="Left Offset"
+                        value={style.left !== undefined ? style.left : (posMode === 'sticky' ? '' : (posMode === 'relative' || posMode === 'absolute' || posMode === 'fixed' ? selectedNode.x : ''))}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? undefined : Number(e.target.value);
+                          updateNodeStyle(selectedNode.id, { left: val });
+                          if (val !== undefined && (posMode === 'relative' || posMode === 'absolute')) {
+                            updateNodeGeometry(selectedNode.id, val, selectedNode.y, selectedNode.width, selectedNode.height);
+                          }
+                        }}
+                        className={inputClass}
+                      />
+                      <span className="text-[9px] text-slate-500 block text-center mt-0.5">Left</span>
+                    </div>
+                  </div>
+
+                  {posMode === 'sticky' && (
+                    <div className="text-[10px] text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 rounded-md p-2 flex items-center gap-1.5 mt-1.5">
+                      <span>📌</span>
+                      <span>
+                        <strong>Sticky Offset</strong>: Menentukan batas jarak menempel elemen dari tepi layar saat di-scroll (misal: <code>Top: 0px</code> atau <code>Top: 30px</code>).
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-2">
+              {/* WIDTH & HEIGHT WITH RESPONSIVE UNITS */}
+              <div className="grid grid-cols-2 gap-2 mt-1">
                 <div>
                   <label className="text-[10px] text-slate-500 block mb-0.5">Width (W)</label>
-                  <input
-                    type="number"
-                    value={selectedNode.width}
-                    onChange={(e) => updateNodeGeometry(selectedNode.id, selectedNode.x, selectedNode.y, Number(e.target.value), selectedNode.height)}
-                    className={inputClass}
-                  />
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      disabled={style.widthUnit === 'auto'}
+                      value={style.widthUnit === '%' || style.widthUnit === 'vw' ? (style.customWidthVal ?? 100) : selectedNode.width}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (style.widthUnit === '%' || style.widthUnit === 'vw') {
+                          updateNodeStyle(selectedNode.id, { customWidthVal: val });
+                        } else {
+                          updateNodeGeometry(selectedNode.id, selectedNode.x, selectedNode.y, val, selectedNode.height);
+                        }
+                      }}
+                      className={`${inputClass} flex-1 ${style.widthUnit === 'auto' ? 'opacity-40 cursor-not-allowed' : ''}`}
+                    />
+                    <select
+                      value={style.widthUnit || 'px'}
+                      onChange={(e) => {
+                        const u = e.target.value as any;
+                        updateNodeStyle(selectedNode.id, {
+                          widthUnit: u,
+                          customWidthVal: u === '%' || u === 'vw' ? (style.customWidthVal ?? 100) : undefined,
+                        });
+                      }}
+                      className={`w-16 text-xs p-1.5 rounded border font-mono outline-none text-center cursor-pointer ${
+                        isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-300 text-slate-800'
+                      }`}
+                    >
+                      <option value="px">px</option>
+                      <option value="%">%</option>
+                      <option value="vw">vw</option>
+                      <option value="auto">auto</option>
+                    </select>
+                  </div>
                 </div>
+
                 <div>
                   <label className="text-[10px] text-slate-500 block mb-0.5">Height (H)</label>
-                  <input
-                    type="number"
-                    value={selectedNode.height}
-                    onChange={(e) => updateNodeGeometry(selectedNode.id, selectedNode.x, selectedNode.y, selectedNode.width, Number(e.target.value))}
-                    className={inputClass}
-                  />
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      disabled={style.heightUnit === 'auto'}
+                      value={style.heightUnit === 'vh' || style.heightUnit === 'min-vh' || style.heightUnit === '%' ? (style.customHeightVal ?? 100) : selectedNode.height}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (style.heightUnit === 'vh' || style.heightUnit === 'min-vh' || style.heightUnit === '%') {
+                          updateNodeStyle(selectedNode.id, { customHeightVal: val });
+                        } else {
+                          updateNodeGeometry(selectedNode.id, selectedNode.x, selectedNode.y, selectedNode.width, val);
+                        }
+                      }}
+                      className={`${inputClass} flex-1 ${style.heightUnit === 'auto' ? 'opacity-40 cursor-not-allowed' : ''}`}
+                    />
+                    <select
+                      value={style.heightUnit || 'px'}
+                      onChange={(e) => {
+                        const u = e.target.value as any;
+                        updateNodeStyle(selectedNode.id, {
+                          heightUnit: u,
+                          customHeightVal: u === 'vh' || u === 'min-vh' || u === '%' ? (style.customHeightVal ?? 100) : undefined,
+                        });
+                      }}
+                      className={`w-16 text-xs p-1.5 rounded border font-mono outline-none text-center cursor-pointer ${
+                        isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-300 text-slate-800'
+                      }`}
+                    >
+                      <option value="px">px</option>
+                      <option value="vh">vh</option>
+                      <option value="min-vh">min-vh</option>
+                      <option value="%">%</option>
+                      <option value="auto">auto</option>
+                    </select>
+                  </div>
                 </div>
+              </div>
+
+              {/* QUICK RESPONSIVE SIZING PRESETS */}
+              <div className="grid grid-cols-3 gap-1 mt-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateNodeStyle(selectedNode.id, {
+                      widthUnit: '%',
+                      customWidthVal: 100,
+                    });
+                  }}
+                  className={`text-[9px] py-1 px-1 rounded border text-center transition flex items-center justify-center gap-1 ${
+                    style.widthUnit === '%' && style.customWidthVal === 100
+                      ? 'bg-indigo-600 text-white border-indigo-600 font-semibold'
+                      : isDark ? 'bg-slate-800/80 text-slate-300 border-slate-700 hover:border-indigo-500' : 'bg-slate-100 text-slate-700 border-slate-200'
+                  }`}
+                  title="Fit Width 100% Penuh Kontainer"
+                >
+                  <span>↔</span> Fit Width
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateNodeStyle(selectedNode.id, {
+                      heightUnit: 'min-vh',
+                      customHeightVal: 100,
+                    });
+                    updateNodeGeometry(selectedNode.id, selectedNode.x, selectedNode.y, selectedNode.width, Math.max(selectedNode.height, 650));
+                  }}
+                  className={`text-[9px] py-1 px-1 rounded border text-center transition flex items-center justify-center gap-1 ${
+                    (style.heightUnit === 'min-vh' || style.heightUnit === 'vh') && style.customHeightVal === 100
+                      ? 'bg-indigo-600 text-white border-indigo-600 font-semibold'
+                      : isDark ? 'bg-slate-800/80 text-slate-300 border-slate-700 hover:border-indigo-500' : 'bg-slate-100 text-slate-700 border-slate-200'
+                  }`}
+                  title="Full Screen Hero 100vh"
+                >
+                  <span>↕</span> 100vh Hero
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateNodeStyle(selectedNode.id, {
+                      sizingPreset: 'hero',
+                      widthUnit: '%',
+                      heightUnit: 'min-vh',
+                      customWidthVal: 100,
+                      customHeightVal: 100,
+                    });
+                    updateNodeGeometry(selectedNode.id, selectedNode.x, selectedNode.y, selectedNode.width, Math.max(selectedNode.height, 650));
+                  }}
+                  className={`text-[9px] py-1 px-1 rounded border text-center transition flex items-center justify-center gap-1 ${
+                    style.sizingPreset === 'hero' || (style.widthUnit === '%' && style.heightUnit === 'min-vh')
+                      ? 'bg-indigo-600 text-white border-indigo-600 font-semibold'
+                      : isDark ? 'bg-slate-800/80 text-slate-300 border-slate-700 hover:border-indigo-500' : 'bg-slate-100 text-slate-700 border-slate-200'
+                  }`}
+                  title="Full Screen Hero (100% × 100vh)"
+                >
+                  <span>⤢</span> Full Hero
+                </button>
               </div>
 
               <div className="grid grid-cols-2 gap-2 mt-1">

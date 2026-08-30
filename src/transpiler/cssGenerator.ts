@@ -32,14 +32,27 @@ export const generateRawCSS = (
       const pos = s.position || 'static';
       if (pos && pos !== 'static') {
         rules.push(`  position: ${pos};`);
-        if (pos === 'absolute' || pos === 'fixed') {
-          rules.push(`  left: ${node.x}px;`);
-          rules.push(`  top: ${node.y}px;`);
-        } else if (pos === 'relative' && (node.x !== 0 || node.y !== 0)) {
-          rules.push(`  left: ${node.x}px;`);
-          rules.push(`  top: ${node.y}px;`);
-        } else if (pos === 'sticky') {
-          rules.push(`  top: 0px;`);
+        if (pos === 'sticky') {
+          rules.push(`  top: ${s.top !== undefined ? s.top : 0}px;`);
+          if (s.top && s.top > 0) rules.push(`  margin-top: ${s.top}px;`);
+          if (s.right && s.right > 0) rules.push(`  margin-right: ${s.right}px;`);
+          if (s.bottom && s.bottom > 0) rules.push(`  margin-bottom: ${s.bottom}px;`);
+          if (s.left && s.left > 0) rules.push(`  margin-left: ${s.left}px;`);
+          if (s.bottom !== undefined && (!s.bottom || s.bottom <= 0)) rules.push(`  bottom: ${s.bottom}px;`);
+          if (s.left !== undefined && (!s.left || s.left <= 0)) rules.push(`  left: ${s.left}px;`);
+          if (s.right !== undefined && (!s.right || s.right <= 0)) rules.push(`  right: ${s.right}px;`);
+        } else if (pos === 'absolute' || pos === 'fixed') {
+          rules.push(`  left: ${s.left !== undefined ? s.left : node.x}px;`);
+          rules.push(`  top: ${s.top !== undefined ? s.top : node.y}px;`);
+          if (s.right !== undefined) rules.push(`  right: ${s.right}px;`);
+          if (s.bottom !== undefined) rules.push(`  bottom: ${s.bottom}px;`);
+        } else if (pos === 'relative') {
+          const effX = s.left !== undefined ? s.left : node.x;
+          const effY = s.top !== undefined ? s.top : node.y;
+          if (effX !== 0) rules.push(`  left: ${effX}px;`);
+          if (effY !== 0) rules.push(`  top: ${effY}px;`);
+          if (s.right !== undefined) rules.push(`  right: ${s.right}px;`);
+          if (s.bottom !== undefined) rules.push(`  bottom: ${s.bottom}px;`);
         }
         if (s.zIndex && s.zIndex > 1) {
           rules.push(`  z-index: ${s.zIndex};`);
@@ -85,8 +98,51 @@ export const generateRawCSS = (
       rules.push(`  margin: 0 auto;`);
       rules.push(`  box-sizing: border-box;`);
     } else {
-      if (node.width > 0) rules.push(`  width: ${node.width}px;`);
-      if (node.height > 0) rules.push(`  height: ${node.height}px;`);
+      if (s.sizingPreset === 'hero') {
+        rules.push(`  width: 100%;`);
+        rules.push(`  min-height: 100vh;`);
+      } else if (s.sizingPreset === 'banner') {
+        rules.push(`  width: 100%;`);
+        rules.push(`  height: auto;`);
+      } else if (s.sizingPreset === 'contained') {
+        rules.push(`  width: 100%;`);
+        if (node.width > 0) rules.push(`  max-width: ${node.width}px;`);
+        if (node.height > 0) rules.push(`  min-height: ${node.height}px;`);
+        rules.push(`  margin: 0 auto;`);
+      } else if (s.sizingPreset === 'fit-content') {
+        rules.push(`  width: fit-content;`);
+        if (node.height > 0) rules.push(`  height: ${node.height}px;`);
+      } else {
+        const wUnit = s.widthUnit || 'px';
+        const hUnit = s.heightUnit || 'px';
+        const wVal = s.customWidthVal !== undefined ? s.customWidthVal : node.width;
+        const hVal = s.customHeightVal !== undefined ? s.customHeightVal : node.height;
+
+        if (wUnit === 'auto') {
+          rules.push(`  width: auto;`);
+        } else if (wUnit === '%') {
+          rules.push(`  width: ${wVal}%;`);
+        } else if (wUnit === 'vw') {
+          rules.push(`  width: ${wVal}vw;`);
+        } else if (wVal > 0) {
+          rules.push(`  width: ${wVal}px;`);
+        }
+
+        if (hUnit === 'auto') {
+          rules.push(`  height: auto;`);
+        } else if (hUnit === '%') {
+          rules.push(`  height: ${hVal}%;`);
+        } else if (hUnit === 'vh') {
+          rules.push(`  height: ${hVal}vh;`);
+        } else if (hUnit === 'min-vh') {
+          rules.push(`  min-height: ${hVal}vh;`);
+        } else if (hVal > 0) {
+          rules.push(`  height: ${hVal}px;`);
+        }
+      }
+
+      if (s.maxWidth) rules.push(`  max-width: ${typeof s.maxWidth === 'number' ? `${s.maxWidth}px` : s.maxWidth};`);
+      if (s.minHeight && s.sizingPreset !== 'hero') rules.push(`  min-height: ${typeof s.minHeight === 'number' ? `${s.minHeight}px` : s.minHeight};`);
       rules.push(`  box-sizing: border-box;`);
     }
 

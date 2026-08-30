@@ -20,14 +20,25 @@ export const generateTailwind = (
       const pos = s.position || 'static';
       if (pos && pos !== 'static') {
         classes.push(pos);
-        if (pos === 'absolute' || pos === 'fixed') {
-          classes.push(`left-[${node.x}px]`);
-          classes.push(`top-[${node.y}px]`);
-        } else if (pos === 'relative' && (node.x !== 0 || node.y !== 0)) {
-          classes.push(`left-[${node.x}px]`);
-          classes.push(`top-[${node.y}px]`);
-        } else if (pos === 'sticky') {
-          classes.push('top-0', 'z-50');
+        if (pos === 'sticky') {
+          classes.push(s.top !== undefined ? `top-[${s.top}px]` : 'top-0');
+          if (s.top && s.top > 0) classes.push(`mt-[${s.top}px]`);
+          if (s.right && s.right > 0) classes.push(`mr-[${s.right}px]`);
+          if (s.bottom && s.bottom > 0) classes.push(`mb-[${s.bottom}px]`);
+          if (s.left && s.left > 0) classes.push(`ml-[${s.left}px]`);
+          classes.push('z-50');
+        } else if (pos === 'absolute' || pos === 'fixed') {
+          classes.push(`left-[${s.left !== undefined ? s.left : node.x}px]`);
+          classes.push(`top-[${s.top !== undefined ? s.top : node.y}px]`);
+          if (s.right !== undefined) classes.push(`right-[${s.right}px]`);
+          if (s.bottom !== undefined) classes.push(`bottom-[${s.bottom}px]`);
+        } else if (pos === 'relative') {
+          const effX = s.left !== undefined ? s.left : node.x;
+          const effY = s.top !== undefined ? s.top : node.y;
+          if (effX !== 0) classes.push(`left-[${effX}px]`);
+          if (effY !== 0) classes.push(`top-[${effY}px]`);
+          if (s.right !== undefined) classes.push(`right-[${s.right}px]`);
+          if (s.bottom !== undefined) classes.push(`bottom-[${s.bottom}px]`);
         }
         if (pos !== 'sticky' && s.zIndex && s.zIndex > 1) {
           classes.push(`z-[${s.zIndex}]`);
@@ -101,8 +112,42 @@ export const generateTailwind = (
     if (isRoot) {
       classes.push(`w-full max-w-[${node.width}px] min-h-[${node.height}px] mx-auto`);
     } else {
-      if (node.width > 0) classes.push(`w-[${node.width}px]`);
-      if (node.height > 0) classes.push(`h-[${node.height}px]`);
+      if (s.sizingPreset === 'hero') {
+        classes.push('w-full', 'min-h-screen');
+      } else if (s.sizingPreset === 'banner') {
+        classes.push('w-full', 'h-auto');
+      } else if (s.sizingPreset === 'contained') {
+        classes.push('w-full', 'mx-auto');
+        if (node.width > 0) classes.push(`max-w-[${node.width}px]`);
+        if (node.height > 0) classes.push(`min-h-[${node.height}px]`);
+      } else if (s.sizingPreset === 'fit-content') {
+        classes.push('w-fit');
+        if (node.height > 0) classes.push(`h-[${node.height}px]`);
+      } else {
+        const wUnit = s.widthUnit || 'px';
+        const hUnit = s.heightUnit || 'px';
+        const wVal = s.customWidthVal !== undefined ? s.customWidthVal : node.width;
+        const hVal = s.customHeightVal !== undefined ? s.customHeightVal : node.height;
+
+        if (wUnit === 'auto') classes.push('w-auto');
+        else if (wUnit === '%' && wVal === 100) classes.push('w-full');
+        else if (wUnit === '%') classes.push(`w-[${wVal}%]`);
+        else if (wUnit === 'vw' && wVal === 100) classes.push('w-screen');
+        else if (wUnit === 'vw') classes.push(`w-[${wVal}vw]`);
+        else if (wVal > 0) classes.push(`w-[${wVal}px]`);
+
+        if (hUnit === 'auto') classes.push('h-auto');
+        else if (hUnit === '%' && hVal === 100) classes.push('h-full');
+        else if (hUnit === '%') classes.push(`h-[${hVal}%]`);
+        else if (hUnit === 'vh' && hVal === 100) classes.push('h-screen');
+        else if (hUnit === 'vh') classes.push(`h-[${hVal}vh]`);
+        else if (hUnit === 'min-vh' && hVal === 100) classes.push('min-h-screen');
+        else if (hUnit === 'min-vh') classes.push(`min-h-[${hVal}vh]`);
+        else if (hVal > 0) classes.push(`h-[${hVal}px]`);
+      }
+
+      if (s.maxWidth) classes.push(`max-w-[${typeof s.maxWidth === 'number' ? `${s.maxWidth}px` : s.maxWidth}]`);
+      if (s.minHeight && s.sizingPreset !== 'hero') classes.push(`min-h-[${typeof s.minHeight === 'number' ? `${s.minHeight}px` : s.minHeight}]`);
     }
 
     // Background Color & Image

@@ -464,24 +464,42 @@ export const SVGCanvas: React.FC = () => {
 
     let leftVal: string | undefined = undefined;
     let topVal: string | undefined = undefined;
+    let rightVal: string | undefined = undefined;
+    let bottomVal: string | undefined = undefined;
 
     if (!isRoot) {
       if (posMode === 'absolute' || posMode === 'fixed') {
-        leftVal = `${node.x}px`;
-        topVal = `${node.y}px`;
+        leftVal = style.left !== undefined ? `${style.left}px` : `${node.x}px`;
+        topVal = style.top !== undefined ? `${style.top}px` : `${node.y}px`;
+        if (style.right !== undefined) rightVal = `${style.right}px`;
+        if (style.bottom !== undefined) bottomVal = `${style.bottom}px`;
       } else if (posMode === 'relative') {
-        if (node.x !== 0) leftVal = `${node.x}px`;
-        if (node.y !== 0) topVal = `${node.y}px`;
+        const effX = style.left !== undefined ? style.left : node.x;
+        const effY = style.top !== undefined ? style.top : node.y;
+        if (effX !== 0) leftVal = `${effX}px`;
+        if (effY !== 0) topVal = `${effY}px`;
+        if (style.right !== undefined) rightVal = `${style.right}px`;
+        if (style.bottom !== undefined) bottomVal = `${style.bottom}px`;
       } else if (posMode === 'sticky') {
-        topVal = `0px`;
+        topVal = style.top !== undefined ? `${style.top}px` : `0px`;
+        if (style.bottom !== undefined) bottomVal = `${style.bottom}px`;
+        if (style.left !== undefined) leftVal = `${style.left}px`;
+        if (style.right !== undefined) rightVal = `${style.right}px`;
       }
     }
 
+    const isSticky = !isRoot && posMode === 'sticky';
     const commonStyle: React.CSSProperties = {
       position: isRoot ? 'relative' : posMode,
       left: leftVal,
       top: topVal,
-      zIndex: style.zIndex && style.zIndex > 1 ? style.zIndex : (posMode === 'sticky' ? 50 : undefined),
+      right: rightVal,
+      bottom: bottomVal,
+      marginTop: isSticky && style.top && style.top > 0 ? `${style.top}px` : undefined,
+      marginRight: isSticky && style.right && style.right > 0 ? `${style.right}px` : undefined,
+      marginBottom: isSticky && style.bottom && style.bottom > 0 ? `${style.bottom}px` : undefined,
+      marginLeft: isSticky && style.left && style.left > 0 ? `${style.left}px` : undefined,
+      zIndex: style.zIndex && style.zIndex > 1 ? style.zIndex : (isSticky ? 50 : undefined),
       display: style.display,
       flexDirection: style.flexDirection,
       justifyContent: style.justifyContent,
@@ -552,11 +570,51 @@ export const SVGCanvas: React.FC = () => {
       transform: node.rotation ? `rotate(${node.rotation}deg)` : undefined,
     };
 
-    if (node.width > 0) {
+    if (isRoot) {
       commonStyle.width = `${node.width}px`;
-    }
-    if (node.height > 0) {
-      commonStyle.height = `${node.height}px`;
+      commonStyle.minHeight = `${node.height}px`;
+    } else {
+      if (style.sizingPreset === 'hero') {
+        commonStyle.width = '100%';
+        commonStyle.minHeight = `${node.height > 0 ? node.height : 600}px`;
+      } else if (style.sizingPreset === 'banner') {
+        commonStyle.width = '100%';
+        commonStyle.height = 'auto';
+      } else if (style.sizingPreset === 'contained') {
+        commonStyle.width = '100%';
+        if (node.width > 0) commonStyle.maxWidth = `${node.width}px`;
+        if (node.height > 0) commonStyle.minHeight = `${node.height}px`;
+        commonStyle.margin = '0 auto';
+      } else if (style.sizingPreset === 'fit-content') {
+        commonStyle.width = 'fit-content';
+        if (node.height > 0) commonStyle.height = `${node.height}px`;
+      } else {
+        const wUnit = style.widthUnit || 'px';
+        const hUnit = style.heightUnit || 'px';
+        const wVal = style.customWidthVal !== undefined ? style.customWidthVal : node.width;
+        const hVal = style.customHeightVal !== undefined ? style.customHeightVal : node.height;
+
+        if (wUnit === 'auto') {
+          commonStyle.width = 'auto';
+        } else if (wUnit === '%' || wUnit === 'vw') {
+          commonStyle.width = `${wVal}%`;
+        } else if (wVal > 0) {
+          commonStyle.width = `${wVal}px`;
+        }
+
+        if (hUnit === 'auto') {
+          commonStyle.height = 'auto';
+        } else if (hUnit === '%') {
+          commonStyle.height = `${hVal}%`;
+        } else if (hUnit === 'vh' || hUnit === 'min-vh') {
+          commonStyle.minHeight = `${node.height > 0 ? node.height : (wVal > 0 ? 600 : '100%')}`;
+        } else if (hVal > 0) {
+          commonStyle.height = `${hVal}px`;
+        }
+      }
+
+      if (style.maxWidth) commonStyle.maxWidth = typeof style.maxWidth === 'number' ? `${style.maxWidth}px` : style.maxWidth;
+      if (style.minHeight && style.sizingPreset !== 'hero') commonStyle.minHeight = typeof style.minHeight === 'number' ? `${style.minHeight}px` : style.minHeight;
     }
 
     if (node.type === 'text') {

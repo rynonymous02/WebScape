@@ -94,6 +94,14 @@ export interface NodeStyle {
   paddingRight: number;
   paddingBottom: number;
   paddingLeft: number;
+  // Responsive Sizing & Units
+  widthUnit?: 'px' | '%' | 'vw' | 'auto';
+  heightUnit?: 'px' | 'vh' | '%' | 'auto' | 'min-vh';
+  customWidthVal?: number;
+  customHeightVal?: number;
+  sizingPreset?: 'custom' | 'hero' | 'banner' | 'contained' | 'fit-content';
+  minHeight?: number | string;
+  maxWidth?: number | string;
 
   // General
   opacity: number;

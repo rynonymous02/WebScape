@@ -55,6 +55,9 @@ export const createDefaultStyle = (override: Partial<NodeStyle> = {}): NodeStyle
   paddingRight: 0,
   paddingBottom: 0,
   paddingLeft: 0,
+  widthUnit: 'px',
+  heightUnit: 'px',
+  sizingPreset: 'custom',
 
   opacity: 1,
   ...override,
