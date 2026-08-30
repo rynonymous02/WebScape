@@ -1,0 +1,1669 @@
+import React, { useRef, useState, useEffect } from 'react';
+import { useProjectStore } from '../../store/useProjectStore';
+import { 
+  Sliders, Layout, Palette, Type as TypeIcon, Box, AlignLeft, AlignCenter, AlignRight,
+  ArrowRight, ArrowDown, ArrowUpToLine, ArrowDownToLine, ArrowUp, Move, Image as ImageIcon,
+  Upload, Layers, Sparkles, Monitor, Tablet, Smartphone, ChevronDown, ChevronRight,
+  ChevronLeft, PanelRightClose
+} from 'lucide-react';
+import type { PositionMode, FrameRole } from '../../types/canvas';
+
+const PRESET_BACKGROUND_IMAGES = [
+  { label: 'Dark Violet Gradient', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80' },
+  { label: 'Neon Cyber Grid', url: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=1200&auto=format&fit=crop&q=80' },
+  { label: 'Minimal Dark Mountains', url: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1200&auto=format&fit=crop&q=80' },
+];
+
+const DEVICE_SIZE_PRESETS = [
+  { label: 'Desktop HD (1440 × 900)', width: 1440, height: 900 },
+  { label: 'Desktop Full HD (1920 × 1080)', width: 1920, height: 1080 },
+  { label: 'Laptop Standard (1280 × 800)', width: 1280, height: 800 },
+  { label: 'MacBook Pro 16" (1728 × 1117)', width: 1728, height: 1117 },
+  { label: 'iPad / Tablet (768 × 1024)', width: 768, height: 1024 },
+  { label: 'iPad Pro 11" (834 × 1194)', width: 834, height: 1194 },
+  { label: 'iPad Pro 12.9" (1024 × 1366)', width: 1024, height: 1366 },
+  { label: 'iPhone 14 / 15 (390 × 844)', width: 390, height: 844 },
+  { label: 'iPhone 15 Pro Max (430 × 932)', width: 430, height: 932 },
+  { label: 'iPhone SE / X (375 × 812)', width: 375, height: 812 },
+  { label: 'Android Standard (360 × 800)', width: 360, height: 800 },
+  { label: 'Android Large (412 × 915)', width: 412, height: 915 },
+];
+
+const GRADIENT_PRESETS = [
+  { label: 'Dark Cyber', value: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #311b92 100%)' },
+  { label: 'Neon Sunset', value: 'linear-gradient(135deg, #4c1d95 0%, #c026d3 50%, #f43f5e 100%)' },
+  { label: 'Oceanic Teal', value: 'linear-gradient(135deg, #064e3b 0%, #0d9488 50%, #0284c7 100%)' },
+  { label: 'Midnight Slate', value: 'linear-gradient(135deg, #020617 0%, #0f172a 50%, #1e293b 100%)' },
+  { label: 'Emerald Glow', value: 'linear-gradient(135deg, #022c22 0%, #059669 50%, #34d399 100%)' },
+  { label: 'Royal Amber', value: 'linear-gradient(135deg, #451a03 0%, #d97706 50%, #fbbf24 100%)' },
+];
+
+const MESH_GRADIENT_PRESETS = [
+  { 
+    label: 'Aurora Glow', 
+    value: 'radial-gradient(at 0% 0%, #4c1d95 0px, transparent 50%), radial-gradient(at 100% 0%, #0284c7 0px, transparent 50%), radial-gradient(at 100% 100%, #c026d3 0px, transparent 50%), radial-gradient(at 0% 100%, #059669 0px, transparent 50%) #0f172a' 
+  },
+  { 
+    label: 'Cyberpunk Neon', 
+    value: 'radial-gradient(at 15% 15%, #c026d3 0px, transparent 45%), radial-gradient(at 85% 20%, #3b82f6 0px, transparent 50%), radial-gradient(at 50% 80%, #f43f5e 0px, transparent 50%) #090d16' 
+  },
+  { 
+    label: 'Vibrant Sunset', 
+    value: 'radial-gradient(at 20% 20%, #f97316 0px, transparent 50%), radial-gradient(at 80% 30%, #e11d48 0px, transparent 50%), radial-gradient(at 40% 90%, #9333ea 0px, transparent 50%) #111827' 
+  },
+  { 
+    label: 'Deep Space Mesh', 
+    value: 'radial-gradient(at 90% 10%, #6366f1 0px, transparent 50%), radial-gradient(at 10% 90%, #a855f7 0px, transparent 50%), radial-gradient(at 50% 50%, #06b6d4 0px, transparent 50%) #030712' 
+  },
+];
+
+interface AnglePickerWheelProps {
+  angle: number;
+  onChange: (newAngle: number) => void;
+  size?: number;
+  label?: string;
+  isDark?: boolean;
+}
+
+export const AnglePickerWheel: React.FC<AnglePickerWheelProps> = ({
+  angle,
+  onChange,
+  size = 56,
+  label = 'Sudut Rotasi',
+  isDark = true,
+}) => {
+  const wheelRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const calculateAngleFromPointer = (clientX: number, clientY: number) => {
+    if (!wheelRef.current) return;
+    const rect = wheelRef.current.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = clientX - cx;
+    const dy = clientY - cy;
+
+    let deg = Math.round((Math.atan2(dy, dx) * 180) / Math.PI + 90);
+    if (deg < 0) deg += 360;
+    if (deg === 360) deg = 0;
+    onChange(deg);
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    calculateAngleFromPointer(e.clientX, e.clientY);
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+    const handlePointerMove = (e: PointerEvent) => {
+      calculateAngleFromPointer(e.clientX, e.clientY);
+    };
+    const handlePointerUp = () => {
+      setIsDragging(false);
+    };
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [isDragging]);
+
+  const rad = ((angle - 90) * Math.PI) / 180;
+  const radiusOffset = size / 2 - 8;
+  const dotX = size / 2 + radiusOffset * Math.cos(rad);
+  const dotY = size / 2 + radiusOffset * Math.sin(rad);
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-1 select-none">
+      {label && <span className="text-[10px] text-slate-400 font-medium">{label}</span>}
+      <div
+        ref={wheelRef}
+        onPointerDown={handlePointerDown}
+        style={{ width: size, height: size }}
+        className={`relative rounded-full border cursor-grab active:cursor-grabbing shadow-sm transition-colors ${
+          isDark 
+            ? 'bg-slate-800/90 border-slate-700 hover:border-indigo-500' 
+            : 'bg-slate-100 border-slate-300 hover:border-indigo-500'
+        }`}
+        title={`Geser untuk memutar sudut (${angle}°)`}
+      >
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-1.5 h-1.5 rounded-full bg-indigo-500/50" />
+        </div>
+        <svg className="w-full h-full pointer-events-none">
+          <line
+            x1={size / 2}
+            y1={size / 2}
+            x2={dotX}
+            y2={dotY}
+            stroke="#6366f1"
+            strokeWidth="1.5"
+            strokeDasharray="2 2"
+          />
+        </svg>
+        <div
+          className="absolute w-3.5 h-3.5 bg-slate-900 rounded-full shadow-md border-2 border-white pointer-events-none transform -translate-x-1/2 -translate-y-1/2"
+          style={{
+            left: `${dotX}px`,
+            top: `${dotY}px`,
+          }}
+        />
+      </div>
+    </div>
+  );
+};
+
+export const PropertyInspector: React.FC = () => {
+  const { 
+    selectedIds, 
+    project, 
+    updateNodeGeometry, 
+    updateNodeStyle, 
+    updateNode,
+    bringToFront,
+    sendToBack,
+    moveUp,
+    moveDown,
+    showInspector,
+    toggleInspector,
+    theme,
+  } = useProjectStore();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const isDark = theme === 'dark';
+
+  const toggleSection = (key: string) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const renderSectionHeader = (
+    key: string,
+    title: string,
+    IconComponent: any,
+    iconColorClass: string = 'text-indigo-500',
+    extraBadge?: React.ReactNode
+  ) => {
+    const isExpanded = !!expandedSections[key];
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSection(key)}
+        className="w-full flex items-center justify-between font-semibold text-slate-400 uppercase text-[10px] tracking-wider py-1 hover:text-slate-200 transition select-none group"
+      >
+        <div className="flex items-center gap-1.5">
+          <IconComponent className={`w-3.5 h-3.5 ${iconColorClass}`} />
+          <span>{title}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {extraBadge}
+          {isExpanded ? (
+            <ChevronDown className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 transition-transform" />
+          ) : (
+            <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 transition-transform" />
+          )}
+        </div>
+      </button>
+    );
+  };
+
+  const selectedNode = selectedIds.length === 1 ? project.nodes[selectedIds[0]] : null;
+  const style = selectedNode?.style || ({} as any);
+  const posMode = style.position || (selectedNode?.parentId ? 'static' : 'relative');
+  const isStatic = Boolean(selectedNode?.parentId && posMode === 'static');
+
+  const handlePositionModeChange = (newMode: PositionMode) => {
+    if (!selectedNode) return;
+    updateNodeStyle(selectedNode.id, { position: newMode });
+    if (newMode === 'static' || newMode === 'sticky') {
+      updateNodeGeometry(selectedNode.id, 0, 0, selectedNode.width, selectedNode.height);
+      if (newMode === 'sticky' && (!style.zIndex || style.zIndex <= 1)) {
+        updateNodeStyle(selectedNode.id, { zIndex: 50 });
+      }
+    }
+  };
+
+  const hexToRgba = (hex: string, alpha: number) => {
+    let clean = (hex || '#000000').replace('#', '');
+    if (clean.length === 3) {
+      clean = clean[0] + clean[0] + clean[1] + clean[1] + clean[2] + clean[2];
+    }
+    if (clean.length !== 6) return hex;
+    const r = parseInt(clean.substring(0, 2), 16);
+    const g = parseInt(clean.substring(2, 4), 16);
+    const b = parseInt(clean.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
+  const applyGradientUpdates = (updates: Partial<typeof style>) => {
+    if (!selectedNode) return;
+    const nextStyle = { ...style, ...updates };
+    const gType = nextStyle.gradientType || 'linear';
+    const angle = nextStyle.gradientAngle ?? 135;
+    const pos = nextStyle.gradientPosition || 'center';
+    const c1 = nextStyle.gradientColor1 || '#6366f1';
+    const c2 = nextStyle.gradientColor2 || '#a855f7';
+    const opacity = nextStyle.gradientOpacity ?? 1;
+
+    const rgba1 = hexToRgba(c1, opacity);
+    const rgba2 = hexToRgba(c2, opacity);
+
+    let gradientStr = '';
+    if (gType === 'radial') {
+      gradientStr = `radial-gradient(at ${pos}, ${rgba1} 0%, ${rgba2} 100%)`;
+    } else {
+      gradientStr = `linear-gradient(${angle}deg, ${rgba1} 0%, ${rgba2} 100%)`;
+    }
+
+    updateNodeStyle(selectedNode.id, {
+      ...updates,
+      gradientFill: gradientStr,
+    });
+  };
+
+  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedNode) return;
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (result) {
+          updateNodeStyle(selectedNode.id, { 
+            backgroundImage: result,
+            backgroundSize: style.backgroundSize || 'cover',
+            backgroundPosition: style.backgroundPosition || 'center',
+            backgroundRepeat: style.backgroundRepeat || 'no-repeat',
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const inputClass = `w-full border rounded px-2 py-1 outline-none font-mono text-xs ${
+    isDark
+      ? 'bg-slate-800 border-slate-700 text-white focus:border-indigo-500'
+      : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-indigo-600'
+  }`;
+
+  const selectClass = `w-full border rounded px-2 py-1 outline-none text-xs ${
+    isDark
+      ? 'bg-slate-800 border-slate-700 text-white focus:border-indigo-500'
+      : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-indigo-600'
+  }`;
+
+  const renderPanelContent = () => {
+    if (selectedIds.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center p-6 text-center select-none relative h-full">
+          <button
+            onClick={toggleInspector}
+            title="Sembunyikan Panel"
+            className={`absolute top-2.5 right-2.5 p-1 rounded transition ${
+              isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <PanelRightClose className="w-4 h-4" />
+          </button>
+          <Sliders className="w-8 h-8 mb-2 animate-pulse text-indigo-500" />
+          <p className="text-xs font-medium text-slate-500">Pilih elemen pada kanvas atau layer tree untuk mengedit properti</p>
+        </div>
+      );
+    }
+
+    if (!selectedNode) {
+      return (
+        <div className="p-4 text-xs select-none relative">
+          <div className="flex items-center justify-between mb-2">
+            <p className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{selectedIds.length} Elemen Terpilih</p>
+            <button
+              onClick={toggleInspector}
+              title="Sembunyikan Panel"
+              className={`p-1 rounded transition ${
+                isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-slate-100 text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <PanelRightClose className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <p className="text-slate-500">Multi-selection properties editing aktif.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col">
+        {/* Inspector Header */}
+        <div className={`h-10 border-b px-3 flex items-center justify-between font-semibold shrink-0 sticky top-0 z-10 ${
+          isDark ? 'border-slate-800 text-white bg-slate-900/90 backdrop-blur' : 'border-slate-200 text-slate-900 bg-slate-50/90 backdrop-blur'
+        }`}>
+          <div className="flex items-center gap-2 truncate">
+            <Box className="w-4 h-4 text-indigo-500 shrink-0" />
+            <span className="truncate">{selectedNode.name}</span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono uppercase ${
+              isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-200 text-slate-700'
+            }`}>
+              {selectedNode.type === 'frame' ? (selectedNode.frameRole || 'frame') : selectedNode.type}
+            </span>
+            <button
+              onClick={toggleInspector}
+              title="Sembunyikan Panel Properti (Hide Inspector)"
+              className={`p-1 rounded transition ${
+                isDark ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-slate-200 text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <PanelRightClose className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-3 flex flex-col gap-4">
+        {/* FRAME SEMANTIC ROLE (WRAPPER / SECTION / CONTAINER) */}
+        {selectedNode.type === 'frame' && (
+          <section className={`flex flex-col gap-2 border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+            {renderSectionHeader('role', 'Opsi Peran Frame', Layers, 'text-indigo-500')}
+
+            {expandedSections['role'] && (
+              <div className="flex flex-col gap-2 pt-1">
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-0.5">Tipe / Peran Elemen</label>
+                  <select
+                    value={selectedNode.frameRole || (selectedNode.parentId ? 'container' : 'wrapper')}
+                    onChange={(e) => updateNode(selectedNode.id, { frameRole: e.target.value as FrameRole })}
+                    className={selectClass}
+                  >
+                    <option value="wrapper">Wrapper Utama / Page Wrapper (&lt;main&gt; / &lt;div&gt;)</option>
+                    <option value="section">Section Konten (&lt;section&gt;)</option>
+                    <option value="container">Container Biasa / Card Box (&lt;div&gt;)</option>
+                  </select>
+                </div>
+
+                {/* DEVICE SIZE TEMPLATES FOR WRAPPER UTAMA */}
+                {(selectedNode.frameRole === 'wrapper' || (!selectedNode.frameRole && !selectedNode.parentId)) && (
+                  <div className={`mt-2 pt-2 border-t flex flex-col gap-1.5 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+                    <label className="text-[10px] text-slate-500 flex items-center justify-between">
+                      <span className="flex items-center gap-1 font-medium">
+                        <Monitor className="w-3 h-3 text-indigo-400" />
+                        Template Ukuran Device / Viewport
+                      </span>
+                    </label>
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        const found = DEVICE_SIZE_PRESETS.find(p => `${p.width}x${p.height}` === e.target.value);
+                        if (found) {
+                          updateNodeGeometry(selectedNode.id, selectedNode.x, selectedNode.y, found.width, found.height);
+                        }
+                      }}
+                      className={selectClass}
+                    >
+                      <option value="" disabled>-- Pilih Ukuran Template Device --</option>
+                      {DEVICE_SIZE_PRESETS.map((p, idx) => (
+                        <option key={idx} value={`${p.width}x${p.height}`}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="grid grid-cols-4 gap-1">
+                      <button
+                        onClick={() => updateNodeGeometry(selectedNode.id, selectedNode.x, selectedNode.y, 1440, 900)}
+                        className={`text-[9px] py-1 rounded transition flex items-center justify-center gap-1 ${
+                          isDark ? 'bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white' : 'bg-slate-100 hover:bg-indigo-600 text-slate-700 hover:text-white'
+                        }`}
+                        title="Desktop 1440 × 900"
+                      >
+                        <Monitor className="w-2.5 h-2.5" /> Desktop
+                      </button>
+                      <button
+                        onClick={() => updateNodeGeometry(selectedNode.id, selectedNode.x, selectedNode.y, 768, 1024)}
+                        className={`text-[9px] py-1 rounded transition flex items-center justify-center gap-1 ${
+                          isDark ? 'bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white' : 'bg-slate-100 hover:bg-indigo-600 text-slate-700 hover:text-white'
+                        }`}
+                        title="Tablet 768 × 1024"
+                      >
+                        <Tablet className="w-2.5 h-2.5" /> Tablet
+                      </button>
+                      <button
+                        onClick={() => updateNodeGeometry(selectedNode.id, selectedNode.x, selectedNode.y, 390, 844)}
+                        className={`text-[9px] py-1 rounded transition flex items-center justify-center gap-1 ${
+                          isDark ? 'bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white' : 'bg-slate-100 hover:bg-indigo-600 text-slate-700 hover:text-white'
+                        }`}
+                        title="iPhone 390 × 844"
+                      >
+                        <Smartphone className="w-2.5 h-2.5 text-sky-400" /> iPhone
+                      </button>
+                      <button
+                        onClick={() => updateNodeGeometry(selectedNode.id, selectedNode.x, selectedNode.y, 360, 800)}
+                        className={`text-[9px] py-1 rounded transition flex items-center justify-center gap-1 ${
+                          isDark ? 'bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white' : 'bg-slate-100 hover:bg-indigo-600 text-slate-700 hover:text-white'
+                        }`}
+                        title="Android 360 × 800"
+                      >
+                        <Smartphone className="w-2.5 h-2.5 text-emerald-400" /> Android
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* 1. POSITIONING & COORDINATE PLACEMENT */}
+        <section className={`flex flex-col gap-2 border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+          {renderSectionHeader('position', 'Position & Koordinat', Move, 'text-indigo-500', isStatic ? (
+            <span className="text-[9px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/20">
+              Alur Flexbox
+            </span>
+          ) : null)}
+
+          {expandedSections['position'] && (
+            <div className="flex flex-col gap-2 pt-1">
+              <div>
+                <label className="text-[10px] text-slate-500 block mb-0.5">Position Mode</label>
+                <select
+                  value={posMode}
+                  onChange={(e) => handlePositionModeChange(e.target.value as PositionMode)}
+                  className={selectClass}
+                >
+                  <option value="static">Static (Normal Flow / Otomatis Flexbox)</option>
+                  <option value="relative">Relative (Normal flow + bebas geser offset)</option>
+                  <option value="absolute">Absolute (Bebas di dalam wadah induk)</option>
+                  <option value="fixed">Fixed (Menempel pada viewport layar)</option>
+                  <option value="sticky">Sticky (Menempel saat di-scroll)</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-0.5">
+                    {posMode === 'relative' ? 'Offset X / Left' : 'X / Left'} (px)
+                  </label>
+                  <input
+                    type="number"
+                    disabled={isStatic || posMode === 'sticky'}
+                    value={selectedNode.x}
+                    onChange={(e) => updateNodeGeometry(selectedNode.id, Number(e.target.value), selectedNode.y, selectedNode.width, selectedNode.height)}
+                    className={`${inputClass} ${(isStatic || posMode === 'sticky') ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-0.5">
+                    {posMode === 'relative' ? 'Offset Y / Top' : 'Y / Top'} (px)
+                  </label>
+                  <input
+                    type="number"
+                    disabled={isStatic || posMode === 'sticky'}
+                    value={selectedNode.y}
+                    onChange={(e) => updateNodeGeometry(selectedNode.id, selectedNode.x, Number(e.target.value), selectedNode.width, selectedNode.height)}
+                    className={`${inputClass} ${(isStatic || posMode === 'sticky') ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  />
+                </div>
+              </div>
+
+              {posMode === 'sticky' && (
+                <div className="text-[10px] text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 rounded-md p-2 flex items-center gap-1.5 mt-0.5">
+                  <span>📌</span>
+                  <span>Elemen <strong>Sticky</strong> akan otomatis mengikuti alur flexbox dan menempel di bagian atas saat halaman di-scroll.</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-0.5">Width (W)</label>
+                  <input
+                    type="number"
+                    value={selectedNode.width}
+                    onChange={(e) => updateNodeGeometry(selectedNode.id, selectedNode.x, selectedNode.y, Number(e.target.value), selectedNode.height)}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-0.5">Height (H)</label>
+                  <input
+                    type="number"
+                    value={selectedNode.height}
+                    onChange={(e) => updateNodeGeometry(selectedNode.id, selectedNode.x, selectedNode.y, selectedNode.width, Number(e.target.value))}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-0.5">Z-Index</label>
+                  <input
+                    type="number"
+                    value={style.zIndex || 1}
+                    onChange={(e) => updateNodeStyle(selectedNode.id, { zIndex: Number(e.target.value) })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-0.5">Rotation (°)</label>
+                  <input
+                    type="number"
+                    value={selectedNode.rotation}
+                    onChange={(e) => updateNodeGeometry(selectedNode.id, selectedNode.x, selectedNode.y, selectedNode.width, selectedNode.height, Number(e.target.value))}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              {/* Quick Z-Index Layer Stacking Buttons */}
+              <div className={`mt-2 pt-2 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+                <label className="text-[10px] text-slate-500 block mb-1">Layer Stacking Order</label>
+                <div className={`flex items-center gap-1 p-1 rounded border ${
+                  isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'
+                }`}>
+                  <button
+                    onClick={() => bringToFront(selectedNode.id)}
+                    title="Bring to Front (Paling Depan)"
+                    className="flex-1 py-1 rounded hover:bg-indigo-600 hover:text-white transition flex justify-center items-center"
+                  >
+                    <ArrowUpToLine className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => moveUp(selectedNode.id)}
+                    title="Bring Forward (1 Step Up)"
+                    className="flex-1 py-1 rounded hover:bg-indigo-600 hover:text-white transition flex justify-center items-center"
+                  >
+                    <ArrowUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => moveDown(selectedNode.id)}
+                    title="Send Backward (1 Step Down)"
+                    className="flex-1 py-1 rounded hover:bg-indigo-600 hover:text-white transition flex justify-center items-center"
+                  >
+                    <ArrowDown className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => sendToBack(selectedNode.id)}
+                    title="Send to Back (Paling Belakang)"
+                    className="flex-1 py-1 rounded hover:bg-indigo-600 hover:text-white transition flex justify-center items-center"
+                  >
+                    <ArrowDownToLine className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* 2. BACKGROUND & VISUAL MEDIA (SOLID, GRADIENT, MESH, IMAGE, OPACITY, OVERLAY) */}
+        {(selectedNode.type === 'frame' || selectedNode.type === 'rectangle') && (
+          <section className={`flex flex-col gap-2.5 border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+            {renderSectionHeader('background', 'Background & Media', ImageIcon, 'text-sky-400', selectedNode.frameRole === 'section' ? (
+              <span className="text-[9px] bg-indigo-500/10 text-indigo-400 px-1.5 py-0.5 rounded font-mono border border-indigo-500/20">
+                Section Active
+              </span>
+            ) : null)}
+
+            {expandedSections['background'] && (
+              <div className="flex flex-col gap-2.5 pt-1">
+                {/* Mode Background Switcher */}
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-1">Tipe Background</label>
+                  <div className={`grid grid-cols-4 gap-1 p-1 rounded border text-[10px] font-medium ${
+                    isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'
+                  }`}>
+                    {(['solid', 'gradient', 'mesh', 'image'] as const).map((mode) => {
+                      const currentMode = style.backgroundType || (style.backgroundImage ? 'image' : 'solid');
+                      const active = currentMode === mode;
+                      return (
+                        <button
+                          key={mode}
+                          onClick={() => updateNodeStyle(selectedNode.id, { backgroundType: mode })}
+                          className={`py-1 rounded capitalize transition text-center ${
+                            active
+                              ? 'bg-indigo-600 text-white font-semibold shadow-sm'
+                              : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          {mode}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* GRADIENT MODE CONTROLS (TYPE, ANGLE, POSITION, COLORS, OPACITY) */}
+                {(style.backgroundType === 'gradient') && (
+                  <div className="flex flex-col gap-2.5">
+                    {/* Type: Linear vs Radial */}
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div>
+                        <label className="text-[10px] text-slate-500 block mb-0.5">Tipe Gradient</label>
+                        <select
+                          value={style.gradientType || 'linear'}
+                          onChange={(e) => applyGradientUpdates({ gradientType: e.target.value as any })}
+                          className={selectClass}
+                        >
+                          <option value="linear">Linear Gradient</option>
+                          <option value="radial">Radial Gradient</option>
+                        </select>
+                      </div>
+
+                      {(style.gradientType || 'linear') === 'linear' ? (
+                        <div>
+                          <label className="text-[10px] text-slate-500 block mb-0.5">Angle / Sudut (°)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="360"
+                            value={style.gradientAngle ?? 135}
+                            onChange={(e) => applyGradientUpdates({ gradientAngle: Number(e.target.value) })}
+                            className={inputClass}
+                          />
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="text-[10px] text-slate-500 block mb-0.5">Posisi Center</label>
+                          <select
+                            value={style.gradientPosition || 'center'}
+                            onChange={(e) => applyGradientUpdates({ gradientPosition: e.target.value as any })}
+                            className={selectClass}
+                          >
+                            <option value="center">Center</option>
+                            <option value="top left">Top Left</option>
+                            <option value="top right">Top Right</option>
+                            <option value="bottom left">Bottom Left</option>
+                            <option value="bottom right">Bottom Right</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Angle Slider & Quick Angle Presets for Linear Gradient */}
+                    {(style.gradientType || 'linear') === 'linear' && (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] text-slate-500">Rotate Angle</label>
+                          <span className="text-[10px] font-mono text-indigo-400">{style.gradientAngle ?? 135}°</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="360"
+                          step="5"
+                          value={style.gradientAngle ?? 135}
+                          onChange={(e) => applyGradientUpdates({ gradientAngle: Number(e.target.value) })}
+                          className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                        />
+                        <div className="grid grid-cols-6 gap-1 mt-0.5">
+                          {[0, 45, 90, 135, 180, 270].map((ang) => (
+                            <button
+                              key={ang}
+                              onClick={() => applyGradientUpdates({ gradientAngle: ang })}
+                              className={`text-[9px] py-0.5 rounded border text-center transition ${
+                                (style.gradientAngle ?? 135) === ang
+                                  ? 'bg-indigo-600 text-white border-indigo-500'
+                                  : isDark ? 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white' : 'bg-slate-100 text-slate-600 border-slate-200'
+                              }`}
+                            >
+                              {ang}°
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Color Stop 1 & Color Stop 2 */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-slate-500 block mb-0.5">Warna Awal (Color 1)</label>
+                        <div className={`flex items-center gap-1.5 border rounded p-1 ${
+                          isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-300'
+                        }`}>
+                          <input
+                            type="color"
+                            value={style.gradientColor1 || '#6366f1'}
+                            onChange={(e) => applyGradientUpdates({ gradientColor1: e.target.value })}
+                            className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
+                          />
+                          <input
+                            type="text"
+                            value={style.gradientColor1 || '#6366f1'}
+                            onChange={(e) => applyGradientUpdates({ gradientColor1: e.target.value })}
+                            className="w-full bg-transparent font-mono outline-none text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-slate-500 block mb-0.5">Warna Akhir (Color 2)</label>
+                        <div className={`flex items-center gap-1.5 border rounded p-1 ${
+                          isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-300'
+                        }`}>
+                          <input
+                            type="color"
+                            value={style.gradientColor2 || '#a855f7'}
+                            onChange={(e) => applyGradientUpdates({ gradientColor2: e.target.value })}
+                            className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
+                          />
+                          <input
+                            type="text"
+                            value={style.gradientColor2 || '#a855f7'}
+                            onChange={(e) => applyGradientUpdates({ gradientColor2: e.target.value })}
+                            className="w-full bg-transparent font-mono outline-none text-xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Gradient Opacity Slider */}
+                    <div>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <label className="text-[10px] text-slate-500">Gradient Opacity / Transparansi Warna</label>
+                        <span className="text-[10px] font-mono text-indigo-400">{Math.round((style.gradientOpacity ?? 1) * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={style.gradientOpacity ?? 1}
+                        onChange={(e) => applyGradientUpdates({ gradientOpacity: Number(e.target.value) })}
+                        className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                      />
+                    </div>
+
+                    {/* Preset Gradients */}
+                    <div className="flex flex-col gap-1 mt-1">
+                      <span className="text-[9px] text-slate-500 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-amber-400" />
+                        Preset Gradient Theme
+                      </span>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {GRADIENT_PRESETS.map((preset, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => updateNodeStyle(selectedNode.id, { gradientFill: preset.value })}
+                            className={`text-[10px] p-1.5 rounded border flex items-center gap-1.5 transition text-left ${
+                              style.gradientFill === preset.value
+                                ? 'border-indigo-500 ring-1 ring-indigo-500'
+                                : isDark ? 'bg-slate-800/80 border-slate-700 hover:bg-slate-700' : 'bg-slate-100 border-slate-200 hover:bg-slate-200'
+                            }`}
+                          >
+                            <div className="w-4 h-4 rounded shrink-0 shadow-sm" style={{ background: preset.value }} />
+                            <span className="truncate text-[10px]">{preset.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* MESH GRADIENT MODE PRESETS */}
+                {(style.backgroundType === 'mesh') && (
+                  <div className="flex flex-col gap-2">
+                    <span className="text-[9px] text-slate-500 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-purple-400" />
+                      Modern Mesh Gradient Presets
+                    </span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {MESH_GRADIENT_PRESETS.map((preset, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => updateNodeStyle(selectedNode.id, { meshGradient: preset.value })}
+                          className={`text-[10px] p-2 rounded border flex flex-col gap-1 transition ${
+                            style.meshGradient === preset.value
+                              ? 'border-indigo-500 ring-1 ring-indigo-500'
+                              : isDark ? 'bg-slate-800/80 border-slate-700 hover:bg-slate-700' : 'bg-slate-100 border-slate-200 hover:bg-slate-200'
+                          }`}
+                        >
+                          <div className="w-full h-7 rounded border border-white/10 shadow-sm" style={{ background: preset.value }} />
+                          <span className="truncate text-[10px] font-medium">{preset.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* IMAGE MODE */}
+                {(style.backgroundType === 'image' || (!style.backgroundType && style.backgroundImage)) && (
+                  <div className="flex flex-col gap-2">
+                    {/* Hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageFileUpload}
+                    />
+
+                    {/* Upload Button */}
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`w-full py-1.5 px-3 rounded flex items-center justify-center gap-2 font-medium text-xs border transition ${
+                        isDark
+                          ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
+                      }`}
+                    >
+                      <Upload className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Upload Gambar dari Perangkat</span>
+                    </button>
+
+                    {/* URL Input */}
+                    <div>
+                      <label className="text-[10px] text-slate-500 block mb-0.5">URL Gambar</label>
+                      <input
+                        type="text"
+                        placeholder="https://..."
+                        value={style.backgroundImage || ''}
+                        onChange={(e) => updateNodeStyle(selectedNode.id, { backgroundImage: e.target.value })}
+                        className={inputClass}
+                      />
+                    </div>
+
+                    {/* Preset Wallpapers */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[9px] text-slate-500 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-amber-400" />
+                        Preset Wallpaper
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {PRESET_BACKGROUND_IMAGES.map((preset, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => updateNodeStyle(selectedNode.id, { backgroundImage: preset.url })}
+                            className={`text-[10px] px-2 py-0.5 rounded border transition truncate ${
+                              style.backgroundImage === preset.url
+                                ? 'bg-indigo-600 text-white border-indigo-500'
+                                : isDark
+                                ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Image Size & Position */}
+                    {style.backgroundImage && (
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        <div>
+                          <label className="text-[10px] text-slate-500 block mb-0.5">Image Size</label>
+                          <select
+                            value={style.backgroundSize || 'cover'}
+                            onChange={(e) => updateNodeStyle(selectedNode.id, { backgroundSize: e.target.value as any })}
+                            className={selectClass}
+                          >
+                            <option value="cover">Cover (Penuh)</option>
+                            <option value="contain">Contain (Muat)</option>
+                            <option value="auto">Auto (Asli)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 block mb-0.5">Position</label>
+                          <select
+                            value={style.backgroundPosition || 'center'}
+                            onChange={(e) => updateNodeStyle(selectedNode.id, { backgroundPosition: e.target.value as any })}
+                            className={selectClass}
+                          >
+                            <option value="center">Center</option>
+                            <option value="top">Top</option>
+                            <option value="bottom">Bottom</option>
+                            <option value="left">Left</option>
+                            <option value="right">Right</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* OPACITY & GRADIENT OVERLAY CONTROLS */}
+                <div className={`mt-1 pt-2 border-t flex flex-col gap-2.5 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+                  {/* Layer Opacity */}
+                  <div>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <label className="text-[10px] text-slate-500">Layer / Elemen Opacity</label>
+                      <span className="text-[10px] font-mono text-indigo-400">{Math.round((style.opacity ?? 1) * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={style.opacity ?? 1}
+                      onChange={(e) => updateNodeStyle(selectedNode.id, { opacity: Number(e.target.value) })}
+                      className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                  </div>
+
+                  {/* Gradient Overlay Header */}
+                  <div className={`pt-2 border-t flex flex-col gap-2 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-sky-400" />
+                        Pengaturan Overlay Gradient Opacity
+                      </span>
+                    </div>
+
+                    {/* Quick Fade Presets */}
+                    <div className="grid grid-cols-3 gap-1">
+                      <button
+                        onClick={() => updateNodeStyle(selectedNode.id, { overlayAngle: 90, overlayStartOpacity: 0, overlayEndOpacity: 0.95, overlayStartPos: 0, overlayEndPos: 100 })}
+                        className={`text-[9px] py-1 rounded border text-center transition ${
+                          isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-indigo-500' : 'bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        Fade Kanan →
+                      </button>
+                      <button
+                        onClick={() => updateNodeStyle(selectedNode.id, { overlayAngle: 270, overlayStartOpacity: 0, overlayEndOpacity: 0.95, overlayStartPos: 0, overlayEndPos: 100 })}
+                        className={`text-[9px] py-1 rounded border text-center transition ${
+                          isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-indigo-500' : 'bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        ← Fade Kiri
+                      </button>
+                      <button
+                        onClick={() => updateNodeStyle(selectedNode.id, { overlayAngle: 180, overlayStartOpacity: 0, overlayEndOpacity: 0.95, overlayStartPos: 0, overlayEndPos: 100 })}
+                        className={`text-[9px] py-1 rounded border text-center transition ${
+                          isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-indigo-500' : 'bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        Fade Bawah ↓
+                      </button>
+                    </div>
+
+                    {/* Warna Tint Overlay, Angle Input & Circular Angle Dial Wheel */}
+                    <div className="grid grid-cols-12 gap-2 items-center">
+                      <div className="col-span-7 flex flex-col gap-2">
+                        <div>
+                          <label className="text-[10px] text-slate-500 block mb-0.5">Warna Overlay Tint</label>
+                          <div className={`flex items-center gap-1.5 border rounded p-1 ${
+                            isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-300'
+                          }`}>
+                            <input
+                              type="color"
+                              value={style.overlayColor || '#000000'}
+                              onChange={(e) => updateNodeStyle(selectedNode.id, { overlayColor: e.target.value })}
+                              className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
+                            />
+                            <input
+                              type="text"
+                              value={style.overlayColor || '#000000'}
+                              onChange={(e) => updateNodeStyle(selectedNode.id, { overlayColor: e.target.value })}
+                              className="w-full bg-transparent font-mono outline-none text-xs"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] text-slate-500 block mb-0.5">Arah Overlay Angle (°)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="360"
+                            value={style.overlayAngle ?? 90}
+                            onChange={(e) => updateNodeStyle(selectedNode.id, { overlayAngle: Number(e.target.value) })}
+                            className={inputClass}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="col-span-5 flex justify-center pt-2">
+                        <AnglePickerWheel
+                          angle={style.overlayAngle ?? 90}
+                          onChange={(newAngle) => updateNodeStyle(selectedNode.id, { overlayAngle: newAngle })}
+                          label="Sudut Rotasi"
+                          isDark={isDark}
+                          size={64}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Inkscape style Visual Gradient Bar Preview */}
+                    <div className="flex flex-col gap-1 mt-1">
+                      <label className="text-[10px] text-slate-500">Visual Gradient Alpha Bar</label>
+                      <div
+                        className="w-full h-4 rounded border border-white/20 shadow-inner relative overflow-hidden"
+                        style={{
+                          background: `linear-gradient(to right, transparent, rgba(255,255,255,0.2)), linear-gradient(${style.overlayAngle ?? 90}deg, ${style.overlayColor || '#000000'}${Math.round((style.overlayStartOpacity ?? 0) * 255).toString(16).padStart(2, '0')} ${style.overlayStartPos ?? 0}%, ${style.overlayColor || '#000000'}${Math.round((style.overlayEndOpacity ?? 0.8) * 255).toString(16).padStart(2, '0')} ${style.overlayEndPos ?? 100}%)`,
+                        }}
+                      />
+                    </div>
+
+                    {/* Titik Awal (Start Stop Opacity & Position) */}
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="text-[10px] text-slate-500">Opacity Awal (Start)</label>
+                          <span className="text-[10px] font-mono text-indigo-400">{Math.round((style.overlayStartOpacity ?? (style.overlayOpacity || 0)) * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={style.overlayStartOpacity ?? (style.overlayOpacity || 0)}
+                          onChange={(e) => updateNodeStyle(selectedNode.id, { overlayStartOpacity: Number(e.target.value) })}
+                          className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="text-[10px] text-slate-500">Posisi Start Offset</label>
+                          <span className="text-[10px] font-mono text-indigo-400">{style.overlayStartPos ?? 0}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="1"
+                          value={style.overlayStartPos ?? 0}
+                          onChange={(e) => updateNodeStyle(selectedNode.id, { overlayStartPos: Number(e.target.value) })}
+                          className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Titik Akhir (End Stop Opacity & Position) */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="text-[10px] text-slate-500">Opacity Akhir (End)</label>
+                          <span className="text-[10px] font-mono text-indigo-400">{Math.round((style.overlayEndOpacity ?? 0.8) * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={style.overlayEndOpacity ?? 0.8}
+                          onChange={(e) => updateNodeStyle(selectedNode.id, { overlayEndOpacity: Number(e.target.value) })}
+                          className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="text-[10px] text-slate-500">Posisi End Offset</label>
+                          <span className="text-[10px] font-mono text-indigo-400">{style.overlayEndPos ?? 100}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="1"
+                          value={style.overlayEndPos ?? 100}
+                          onChange={(e) => updateNodeStyle(selectedNode.id, { overlayEndPos: Number(e.target.value) })}
+                          className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* 3. LAYOUT & FLEXBOX SECTION */}
+        <section className={`flex flex-col gap-2 border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+          {renderSectionHeader('layout', 'Flexbox Container Layout', Layout, 'text-indigo-500')}
+
+          {expandedSections['layout'] && (
+            <div className="flex flex-col gap-2 pt-1">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-0.5">Display</label>
+                  <select
+                    value={style.display}
+                    onChange={(e) => updateNodeStyle(selectedNode.id, { display: e.target.value as any })}
+                    className={selectClass}
+                  >
+                    <option value="flex">Flexbox</option>
+                    <option value="block">Block / Free</option>
+                  </select>
+                </div>
+
+                {style.display === 'flex' && (
+                  <div>
+                    <label className="text-[10px] text-slate-500 block mb-0.5">Direction</label>
+                    <div className={`flex p-0.5 rounded border ${
+                      isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'
+                    }`}>
+                      <button
+                        onClick={() => updateNodeStyle(selectedNode.id, { flexDirection: 'row' })}
+                        className={`flex-1 py-0.5 rounded flex justify-center items-center ${style.flexDirection === 'row' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}
+                      >
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => updateNodeStyle(selectedNode.id, { flexDirection: 'column' })}
+                        className={`flex-1 py-0.5 rounded flex justify-center items-center ${style.flexDirection === 'column' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {style.display === 'flex' && (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-500 block mb-0.5">Justify Content</label>
+                      <select
+                        value={style.justifyContent}
+                        onChange={(e) => updateNodeStyle(selectedNode.id, { justifyContent: e.target.value as any })}
+                        className={selectClass}
+                      >
+                        <option value="flex-start">Start</option>
+                        <option value="center">Center</option>
+                        <option value="flex-end">End</option>
+                        <option value="space-between">Space Between</option>
+                        <option value="space-around">Space Around</option>
+                        <option value="space-evenly">Space Evenly</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] text-slate-500 block mb-0.5">Align Items</label>
+                      <select
+                        value={style.alignItems}
+                        onChange={(e) => updateNodeStyle(selectedNode.id, { alignItems: e.target.value as any })}
+                        className={selectClass}
+                      >
+                        <option value="flex-start">Start</option>
+                        <option value="center">Center</option>
+                        <option value="flex-end">End</option>
+                        <option value="stretch">Stretch</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-slate-500 block mb-0.5">Gap (px)</label>
+                    <input
+                      type="number"
+                      value={style.gap}
+                      onChange={(e) => updateNodeStyle(selectedNode.id, { gap: Number(e.target.value) })}
+                      className={inputClass}
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Align Self (For children inside flex container) */}
+              {selectedNode.parentId && (
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-0.5">
+                    Align Self (Penjajaran Mandiri Elemen Ini)
+                  </label>
+                  <select
+                    value={style.alignSelf || 'auto'}
+                    onChange={(e) => updateNodeStyle(selectedNode.id, { alignSelf: e.target.value as any })}
+                    className={selectClass}
+                  >
+                    <option value="auto">Auto (Ikuti Induk)</option>
+                    <option value="flex-start">Flex Start (Awal / Kiri)</option>
+                    <option value="center">Center (Tengah)</option>
+                    <option value="flex-end">Flex End (Akhir / Kanan)</option>
+                    <option value="stretch">Stretch (Merentang)</option>
+                    <option value="baseline">Baseline (Garis Dasar Teks)</option>
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="text-[10px] text-slate-500 block mb-0.5">Padding Inner Spacing (T, R, B, L)</label>
+                <div className="grid grid-cols-4 gap-1">
+                  <div>
+                    <input
+                      type="number"
+                      placeholder="T"
+                      title="Padding Top"
+                      value={style.paddingTop || 0}
+                      onChange={(e) => updateNodeStyle(selectedNode.id, { paddingTop: Number(e.target.value) })}
+                      className={inputClass}
+                    />
+                    <span className="text-[9px] text-slate-500 block text-center mt-0.5">Top</span>
+                  </div>
+                  <div>
+                    <input
+                      type="number"
+                      placeholder="R"
+                      title="Padding Right"
+                      value={style.paddingRight || 0}
+                      onChange={(e) => updateNodeStyle(selectedNode.id, { paddingRight: Number(e.target.value) })}
+                      className={inputClass}
+                    />
+                    <span className="text-[9px] text-slate-500 block text-center mt-0.5">Right</span>
+                  </div>
+                  <div>
+                    <input
+                      type="number"
+                      placeholder="B"
+                      title="Padding Bottom"
+                      value={style.paddingBottom || 0}
+                      onChange={(e) => updateNodeStyle(selectedNode.id, { paddingBottom: Number(e.target.value) })}
+                      className={inputClass}
+                    />
+                    <span className="text-[9px] text-slate-500 block text-center mt-0.5">Bottom</span>
+                  </div>
+                  <div>
+                    <input
+                      type="number"
+                      placeholder="L"
+                      title="Padding Left"
+                      value={style.paddingLeft || 0}
+                      onChange={(e) => updateNodeStyle(selectedNode.id, { paddingLeft: Number(e.target.value) })}
+                      className={inputClass}
+                    />
+                    <span className="text-[9px] text-slate-500 block text-center mt-0.5">Left</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* 4. STYLING (FILL & STROKE & SHADOW) */}
+        <section className={`flex flex-col gap-2 border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+          {renderSectionHeader('fill', 'Fill & Stroke', Palette, 'text-pink-500')}
+
+          {expandedSections['fill'] && (
+            <div className="flex flex-col gap-2 pt-1">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-0.5">Fill Color</label>
+                  <div className={`flex items-center gap-1.5 border rounded p-1 ${
+                    isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-300'
+                  }`}>
+                    <input
+                      type="color"
+                      value={style.fill === 'transparent' ? '#ffffff' : style.fill}
+                      onChange={(e) => updateNodeStyle(selectedNode.id, { fill: e.target.value })}
+                      className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
+                    />
+                    <input
+                      type="text"
+                      value={style.fill}
+                      onChange={(e) => updateNodeStyle(selectedNode.id, { fill: e.target.value })}
+                      className="w-full bg-transparent font-mono outline-none text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-0.5">Stroke Color</label>
+                  <div className={`flex items-center gap-1.5 border rounded p-1 ${
+                    isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-300'
+                  }`}>
+                    <input
+                      type="color"
+                      value={style.stroke === 'transparent' ? '#000000' : style.stroke}
+                      onChange={(e) => updateNodeStyle(selectedNode.id, { stroke: e.target.value })}
+                      className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
+                    />
+                    <input
+                      type="text"
+                      value={style.stroke}
+                      onChange={(e) => updateNodeStyle(selectedNode.id, { stroke: e.target.value })}
+                      className="w-full bg-transparent font-mono outline-none text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-0.5">Stroke Width (px)</label>
+                  <input
+                    type="number"
+                    value={style.strokeWidth}
+                    onChange={(e) => updateNodeStyle(selectedNode.id, { strokeWidth: Number(e.target.value) })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-0.5">Border Radius (All 4)</label>
+                  <input
+                    type="number"
+                    value={style.borderRadius || 0}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      updateNodeStyle(selectedNode.id, {
+                        borderRadius: val,
+                        borderTopLeftRadius: val,
+                        borderTopRightRadius: val,
+                        borderBottomRightRadius: val,
+                        borderBottomLeftRadius: val,
+                      });
+                    }}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              {/* 4 Individual Corners (TL, TR, BR, BL) */}
+              <div className="mt-1">
+                <label className="text-[10px] text-slate-500 block mb-1">Corner Radius Tiap Sisi (TL, TR, BR, BL)</label>
+                <div className="grid grid-cols-4 gap-1">
+                  <div>
+                    <input
+                      type="number"
+                      placeholder="TL"
+                      title="Top-Left Radius"
+                      value={style.borderTopLeftRadius ?? style.borderRadius ?? 0}
+                      onChange={(e) => updateNodeStyle(selectedNode.id, { borderTopLeftRadius: Number(e.target.value) })}
+                      className="w-full text-center text-xs p-1 rounded border bg-slate-800/80 border-slate-700 font-mono outline-none focus:border-indigo-500"
+                    />
+                    <span className="text-[9px] text-slate-500 block text-center mt-0.5">TL</span>
+                  </div>
+                  <div>
+                    <input
+                      type="number"
+                      placeholder="TR"
+                      title="Top-Right Radius"
+                      value={style.borderTopRightRadius ?? style.borderRadius ?? 0}
+                      onChange={(e) => updateNodeStyle(selectedNode.id, { borderTopRightRadius: Number(e.target.value) })}
+                      className="w-full text-center text-xs p-1 rounded border bg-slate-800/80 border-slate-700 font-mono outline-none focus:border-indigo-500"
+                    />
+                    <span className="text-[9px] text-slate-500 block text-center mt-0.5">TR</span>
+                  </div>
+                  <div>
+                    <input
+                      type="number"
+                      placeholder="BR"
+                      title="Bottom-Right Radius"
+                      value={style.borderBottomRightRadius ?? style.borderRadius ?? 0}
+                      onChange={(e) => updateNodeStyle(selectedNode.id, { borderBottomRightRadius: Number(e.target.value) })}
+                      className="w-full text-center text-xs p-1 rounded border bg-slate-800/80 border-slate-700 font-mono outline-none focus:border-indigo-500"
+                    />
+                    <span className="text-[9px] text-slate-500 block text-center mt-0.5">BR</span>
+                  </div>
+                  <div>
+                    <input
+                      type="number"
+                      placeholder="BL"
+                      title="Bottom-Left Radius"
+                      value={style.borderBottomLeftRadius ?? style.borderRadius ?? 0}
+                      onChange={(e) => updateNodeStyle(selectedNode.id, { borderBottomLeftRadius: Number(e.target.value) })}
+                      className="w-full text-center text-xs p-1 rounded border bg-slate-800/80 border-slate-700 font-mono outline-none focus:border-indigo-500"
+                    />
+                    <span className="text-[9px] text-slate-500 block text-center mt-0.5">BL</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* 5. TYPOGRAPHY (for Text Node) */}
+        {selectedNode.type === 'text' && (
+          <section className="flex flex-col gap-2">
+            {renderSectionHeader('typography', 'Typography & Content', TypeIcon, 'text-emerald-500')}
+
+            {expandedSections['typography'] && (
+              <div className="flex flex-col gap-2 pt-1">
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-0.5">Text String</label>
+                  <textarea
+                    rows={2}
+                    value={selectedNode.text || ''}
+                    onChange={(e) => updateNode(selectedNode.id, { text: e.target.value })}
+                    className={`w-full border rounded px-2 py-1 outline-none font-sans ${
+                      isDark
+                        ? 'bg-slate-800 border-slate-700 text-white focus:border-indigo-500'
+                        : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-indigo-600'
+                    }`}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-slate-500 block mb-0.5">Font Size (px)</label>
+                    <input
+                      type="number"
+                      value={style.fontSize}
+                      onChange={(e) => updateNodeStyle(selectedNode.id, { fontSize: Number(e.target.value) })}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-500 block mb-0.5">Font Weight</label>
+                    <select
+                      value={style.fontWeight}
+                      onChange={(e) => updateNodeStyle(selectedNode.id, { fontWeight: Number(e.target.value) })}
+                      className={selectClass}
+                    >
+                      <option value={400}>Normal (400)</option>
+                      <option value={500}>Medium (500)</option>
+                      <option value={600}>Semibold (600)</option>
+                      <option value={700}>Bold (700)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-slate-500 block mb-0.5">Text Color</label>
+                    <div className={`flex items-center gap-1.5 border rounded p-1 ${
+                      isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-300'
+                    }`}>
+                      <input
+                        type="color"
+                        value={style.textColor}
+                        onChange={(e) => updateNodeStyle(selectedNode.id, { textColor: e.target.value })}
+                        className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
+                      />
+                      <input
+                        type="text"
+                        value={style.textColor}
+                        onChange={(e) => updateNodeStyle(selectedNode.id, { textColor: e.target.value })}
+                        className="w-full bg-transparent font-mono outline-none text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-slate-500 block mb-0.5">Alignment</label>
+                    <div className={`flex p-0.5 rounded border ${
+                      isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'
+                    }`}>
+                      <button
+                        onClick={() => updateNodeStyle(selectedNode.id, { textAlign: 'left' })}
+                        className={`flex-1 py-1 rounded flex justify-center ${style.textAlign === 'left' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}
+                      >
+                        <AlignLeft className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => updateNodeStyle(selectedNode.id, { textAlign: 'center' })}
+                        className={`flex-1 py-1 rounded flex justify-center ${style.textAlign === 'center' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}
+                      >
+                        <AlignCenter className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => updateNodeStyle(selectedNode.id, { textAlign: 'right' })}
+                        className={`flex-1 py-1 rounded flex justify-center ${style.textAlign === 'right' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}
+                      >
+                        <AlignRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SPACING HORIZONTAL & VERTIKAL */}
+                <div className={`pt-2 border-t flex flex-col gap-2 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Text Spacing (Horizontal & Vertikal)
+                  </span>
+
+                  {/* Horizontal Spacing (Letter Spacing / Tracking) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <label className="text-[10px] text-slate-500">Spacing Horizontal / Letter Spacing</label>
+                      <span className="text-[10px] font-mono text-indigo-400">{style.letterSpacing ?? 0}px</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min="-2"
+                        max="15"
+                        step="0.5"
+                        value={style.letterSpacing ?? 0}
+                        onChange={(e) => updateNodeStyle(selectedNode.id, { letterSpacing: Number(e.target.value) })}
+                        className="flex-1 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                      />
+                      <input
+                        type="number"
+                        step="0.5"
+                        value={style.letterSpacing ?? 0}
+                        onChange={(e) => updateNodeStyle(selectedNode.id, { letterSpacing: Number(e.target.value) })}
+                        className="w-14 text-xs p-1 rounded border bg-transparent font-mono outline-none text-center"
+                      />
+                    </div>
+                    {/* Quick Presets Letter Spacing */}
+                    <div className="grid grid-cols-4 gap-1 mt-1">
+                      <button
+                        onClick={() => updateNodeStyle(selectedNode.id, { letterSpacing: -0.5 })}
+                        className={`text-[9px] py-0.5 rounded border text-center ${
+                          style.letterSpacing === -0.5 ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-800/60 text-slate-400 border-slate-700'
+                        }`}
+                      >
+                        Rapat (-0.5)
+                      </button>
+                      <button
+                        onClick={() => updateNodeStyle(selectedNode.id, { letterSpacing: 0 })}
+                        className={`text-[9px] py-0.5 rounded border text-center ${
+                          (style.letterSpacing ?? 0) === 0 ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-800/60 text-slate-400 border-slate-700'
+                        }`}
+                      >
+                        Normal (0)
+                      </button>
+                      <button
+                        onClick={() => updateNodeStyle(selectedNode.id, { letterSpacing: 1.5 })}
+                        className={`text-[9px] py-0.5 rounded border text-center ${
+                          style.letterSpacing === 1.5 ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-800/60 text-slate-400 border-slate-700'
+                        }`}
+                      >
+                        Longgar (1.5)
+                      </button>
+                      <button
+                        onClick={() => updateNodeStyle(selectedNode.id, { letterSpacing: 4 })}
+                        className={`text-[9px] py-0.5 rounded border text-center ${
+                          style.letterSpacing === 4 ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-800/60 text-slate-400 border-slate-700'
+                        }`}
+                      >
+                        Wide (4)
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Vertical Spacing (Line Height / Leading) */}
+                  <div className="mt-1">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <label className="text-[10px] text-slate-500">Spacing Vertikal / Line Height</label>
+                      <span className="text-[10px] font-mono text-indigo-400">{style.lineHeight ?? 1.5}x</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min="0.8"
+                        max="3"
+                        step="0.1"
+                        value={style.lineHeight ?? 1.5}
+                        onChange={(e) => updateNodeStyle(selectedNode.id, { lineHeight: Number(e.target.value) })}
+                        className="flex-1 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                      />
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={style.lineHeight ?? 1.5}
+                        onChange={(e) => updateNodeStyle(selectedNode.id, { lineHeight: Number(e.target.value) })}
+                        className="w-14 text-xs p-1 rounded border bg-transparent font-mono outline-none text-center"
+                      />
+                    </div>
+                    {/* Quick Presets Line Height */}
+                    <div className="grid grid-cols-3 gap-1 mt-1">
+                      <button
+                        onClick={() => updateNodeStyle(selectedNode.id, { lineHeight: 1.1 })}
+                        className={`text-[9px] py-0.5 rounded border text-center ${
+                          style.lineHeight === 1.1 ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-800/60 text-slate-400 border-slate-700'
+                        }`}
+                      >
+                        Padat (1.1x)
+                      </button>
+                      <button
+                        onClick={() => updateNodeStyle(selectedNode.id, { lineHeight: 1.5 })}
+                        className={`text-[9px] py-0.5 rounded border text-center ${
+                          (style.lineHeight ?? 1.5) === 1.5 ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-800/60 text-slate-400 border-slate-700'
+                        }`}
+                      >
+                        Normal (1.5x)
+                      </button>
+                      <button
+                        onClick={() => updateNodeStyle(selectedNode.id, { lineHeight: 1.8 })}
+                        className={`text-[9px] py-0.5 rounded border text-center ${
+                          style.lineHeight === 1.8 ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-800/60 text-slate-400 border-slate-700'
+                        }`}
+                      >
+                        Renggang (1.8x)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {/* Floating Vertical Edge Tab attached to right screen edge when hidden */}
+      {!showInspector && (
+        <button
+          onClick={toggleInspector}
+          title="Tampilkan Panel Properti (Show Inspector)"
+          className={`absolute right-0 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center justify-center gap-2 py-3 px-1.5 rounded-l-md border-l border-t border-b shadow-xl backdrop-blur-md transition-all duration-200 hover:pr-2.5 group cursor-pointer animate-in fade-in slide-in-from-right-4 duration-300 ${
+            isDark
+              ? 'bg-slate-900/95 border-slate-700 text-slate-300 hover:text-white hover:border-indigo-500 hover:bg-slate-800'
+              : 'bg-white/95 border-slate-300 text-slate-700 hover:text-slate-950 hover:border-indigo-500 hover:bg-slate-50 shadow-md'
+          }`}
+        >
+          <ChevronLeft className="w-3.5 h-3.5 text-indigo-400 group-hover:-translate-x-0.5 transition-transform" />
+          <span
+            className="text-xs font-semibold tracking-wide select-none py-1"
+            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+          >
+            Properties
+          </span>
+          <Sliders className="w-3.5 h-3.5 text-indigo-500" />
+        </button>
+      )}
+
+      {/* Sliding Property Inspector Sidebar */}
+      <aside className={`border-l flex flex-col h-full select-none z-20 text-xs transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${
+        showInspector ? 'w-72 opacity-100 translate-x-0' : 'w-0 opacity-0 translate-x-full border-l-0 pointer-events-none'
+      } ${
+        isDark ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
+      }`}>
+        <div className="w-72 h-full flex flex-col overflow-y-auto">
+          {renderPanelContent()}
+        </div>
+      </aside>
+    </>
+  );
+};
