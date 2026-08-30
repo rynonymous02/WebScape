@@ -213,6 +213,10 @@ export const generateRawCSS = (
     if (s.boxShadow && s.boxShadow !== 'none') {
       rules.push(`  box-shadow: ${s.boxShadow};`);
     }
+    if (s.backdropBlur && s.backdropBlur > 0) {
+      rules.push(`  backdrop-filter: blur(${s.backdropBlur}px) saturate(${s.backdropSaturate || 180}%);`);
+      rules.push(`  -webkit-backdrop-filter: blur(${s.backdropBlur}px) saturate(${s.backdropSaturate || 180}%);`);
+    }
     if (s.opacity !== undefined && s.opacity < 1) {
       rules.push(`  opacity: ${s.opacity};`);
     }

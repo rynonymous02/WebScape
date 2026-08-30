@@ -4,7 +4,7 @@ import {
   Sliders, Layout, Palette, Type as TypeIcon, Box, AlignLeft, AlignCenter, AlignRight,
   ArrowRight, ArrowDown, ArrowUpToLine, ArrowDownToLine, ArrowUp, Move, Image as ImageIcon,
   Upload, Layers, Sparkles, Monitor, Tablet, Smartphone, ChevronDown, ChevronRight,
-  ChevronLeft, PanelRightClose
+  ChevronLeft, PanelRightClose, Wand2, Zap, Shield, RefreshCw
 } from 'lucide-react';
 import type { PositionMode, FrameRole } from '../../types/canvas';
 
@@ -233,6 +233,7 @@ export const PropertyInspector: React.FC = () => {
   };
 
   const selectedNode = selectedIds.length === 1 ? project.nodes[selectedIds[0]] : null;
+  const [activeEffectTab, setActiveEffectTab] = useState<'glass' | 'shadow' | 'glow' | 'neo'>('glass');
   const style = selectedNode?.style || ({} as any);
   const posMode = style.position || (selectedNode?.parentId ? 'static' : 'relative');
   const isStatic = Boolean(selectedNode?.parentId && posMode === 'static');
@@ -2175,12 +2176,19 @@ export const PropertyInspector: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] text-slate-500 block mb-0.5">Border Radius (All 4)</label>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <label className="text-[10px] text-slate-500">Border Radius (All 4)</label>
+                    <span className="text-[9px] text-slate-500 font-mono">Max: {Math.round(Math.min(selectedNode.width, selectedNode.height) / 2)}px</span>
+                  </div>
                   <input
                     type="number"
+                    min="0"
+                    max={Math.round(Math.min(selectedNode.width, selectedNode.height) / 2)}
                     value={style.borderRadius || 0}
                     onChange={(e) => {
-                      const val = Number(e.target.value);
+                      const maxRadius4 = Math.round(Math.min(selectedNode.width, selectedNode.height) / 2);
+                      const raw = Number(e.target.value);
+                      const val = Math.max(0, Math.min(maxRadius4, raw));
                       updateNodeStyle(selectedNode.id, {
                         borderRadius: val,
                         borderTopLeftRadius: val,
@@ -2196,57 +2204,646 @@ export const PropertyInspector: React.FC = () => {
 
               {/* 4 Individual Corners (TL, TR, BR, BL) */}
               <div className="mt-1">
-                <label className="text-[10px] text-slate-500 block mb-1">Corner Radius Tiap Sisi (TL, TR, BR, BL)</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[10px] text-slate-500">Corner Radius Tiap Sisi (TL, TR, BR, BL)</label>
+                  <span className="text-[9px] text-slate-500 font-mono">Max: {Math.round(Math.min(selectedNode.width, selectedNode.height))}px</span>
+                </div>
                 <div className="grid grid-cols-4 gap-1">
-                  <div>
-                    <input
-                      type="number"
-                      placeholder="TL"
-                      title="Top-Left Radius"
-                      value={style.borderTopLeftRadius ?? style.borderRadius ?? 0}
-                      onChange={(e) => updateNodeStyle(selectedNode.id, { borderTopLeftRadius: Number(e.target.value) })}
-                      className="w-full text-center text-xs p-1 rounded border bg-slate-800/80 border-slate-700 font-mono outline-none focus:border-indigo-500"
-                    />
-                    <span className="text-[9px] text-slate-500 block text-center mt-0.5">TL</span>
-                  </div>
-                  <div>
-                    <input
-                      type="number"
-                      placeholder="TR"
-                      title="Top-Right Radius"
-                      value={style.borderTopRightRadius ?? style.borderRadius ?? 0}
-                      onChange={(e) => updateNodeStyle(selectedNode.id, { borderTopRightRadius: Number(e.target.value) })}
-                      className="w-full text-center text-xs p-1 rounded border bg-slate-800/80 border-slate-700 font-mono outline-none focus:border-indigo-500"
-                    />
-                    <span className="text-[9px] text-slate-500 block text-center mt-0.5">TR</span>
-                  </div>
-                  <div>
-                    <input
-                      type="number"
-                      placeholder="BR"
-                      title="Bottom-Right Radius"
-                      value={style.borderBottomRightRadius ?? style.borderRadius ?? 0}
-                      onChange={(e) => updateNodeStyle(selectedNode.id, { borderBottomRightRadius: Number(e.target.value) })}
-                      className="w-full text-center text-xs p-1 rounded border bg-slate-800/80 border-slate-700 font-mono outline-none focus:border-indigo-500"
-                    />
-                    <span className="text-[9px] text-slate-500 block text-center mt-0.5">BR</span>
-                  </div>
-                  <div>
-                    <input
-                      type="number"
-                      placeholder="BL"
-                      title="Bottom-Left Radius"
-                      value={style.borderBottomLeftRadius ?? style.borderRadius ?? 0}
-                      onChange={(e) => updateNodeStyle(selectedNode.id, { borderBottomLeftRadius: Number(e.target.value) })}
-                      className="w-full text-center text-xs p-1 rounded border bg-slate-800/80 border-slate-700 font-mono outline-none focus:border-indigo-500"
-                    />
-                    <span className="text-[9px] text-slate-500 block text-center mt-0.5">BL</span>
-                  </div>
+                  {([
+                    { key: 'borderTopLeftRadius' as const, label: 'TL', title: 'Top-Left Radius' },
+                    { key: 'borderTopRightRadius' as const, label: 'TR', title: 'Top-Right Radius' },
+                    { key: 'borderBottomRightRadius' as const, label: 'BR', title: 'Bottom-Right Radius' },
+                    { key: 'borderBottomLeftRadius' as const, label: 'BL', title: 'Bottom-Left Radius' },
+                  ] as const).map(({ key, label, title }) => {
+                    const maxRadius1 = Math.round(Math.min(selectedNode.width, selectedNode.height));
+                    return (
+                      <div key={key}>
+                        <input
+                          type="number"
+                          min="0"
+                          max={maxRadius1}
+                          placeholder={label}
+                          title={title}
+                          value={style[key] ?? style.borderRadius ?? 0}
+                          onChange={(e) => {
+                            const raw = Number(e.target.value);
+                            const val = Math.max(0, Math.min(maxRadius1, raw));
+                            updateNodeStyle(selectedNode.id, { [key]: val });
+                          }}
+                          className="w-full text-center text-xs p-1 rounded border bg-slate-800/80 border-slate-700 font-mono outline-none focus:border-indigo-500"
+                        />
+                        <span className="text-[9px] text-slate-500 block text-center mt-0.5">{label}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
           )}
         </section>
+        )}
+
+        {/* 4B. SPECIAL EFFECTS (GLASSMORPHISM, SHADOW, GLOW, NEO-BRUTALISM) */}
+        {(selectedNode.type === 'rectangle' || selectedNode.type === 'ellipse' || selectedNode.type === 'frame') && (
+          <section className={`flex flex-col gap-2.5 border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+            {renderSectionHeader(
+              'specialEffects',
+              'Special Effects & Styling',
+              Wand2,
+              'text-amber-400',
+              (
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  {style.effectType && style.effectType !== 'none' ? style.effectType.toUpperCase() : 'EFFECTS'}
+                </span>
+              )
+            )}
+
+            {expandedSections['specialEffects'] !== false && (
+              <div className="flex flex-col gap-2.5 pt-1">
+                {/* Category Navigation Tabs */}
+                <div className={`grid grid-cols-4 p-0.5 rounded border gap-0.5 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'}`}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveEffectTab('glass')}
+                    className={`text-[9.5px] py-1 rounded font-medium flex items-center justify-center gap-1 transition ${
+                      activeEffectTab === 'glass'
+                        ? 'bg-indigo-600 text-white shadow font-semibold'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <span>❄️</span>
+                    <span>Glass</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveEffectTab('shadow')}
+                    className={`text-[9.5px] py-1 rounded font-medium flex items-center justify-center gap-1 transition ${
+                      activeEffectTab === 'shadow'
+                        ? 'bg-indigo-600 text-white shadow font-semibold'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <span>☁️</span>
+                    <span>Shadow</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveEffectTab('glow')}
+                    className={`text-[9.5px] py-1 rounded font-medium flex items-center justify-center gap-1 transition ${
+                      activeEffectTab === 'glow'
+                        ? 'bg-indigo-600 text-white shadow font-semibold'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <span>⚡</span>
+                    <span>Glow</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveEffectTab('neo')}
+                    className={`text-[9.5px] py-1 rounded font-medium flex items-center justify-center gap-1 transition ${
+                      activeEffectTab === 'neo'
+                        ? 'bg-indigo-600 text-white shadow font-semibold'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <span>🎨</span>
+                    <span>Neo</span>
+                  </button>
+                </div>
+
+                {/* TAB 1: GLASSMORPHISM */}
+                {activeEffectTab === 'glass' && (
+                  <div className="flex flex-col gap-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-semibold text-sky-400 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-sky-400" />
+                        Glassmorphism Presets
+                      </span>
+                      {style.backdropBlur && style.backdropBlur > 0 ? (
+                        <span className="text-[9px] text-emerald-400 font-mono">Aktif (Blur {style.backdropBlur}px)</span>
+                      ) : null}
+                    </div>
+
+                    {/* Quick Glass Presets */}
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        {
+                          name: 'Frosted Light',
+                          desc: 'Putih Es Modern',
+                          props: {
+                            effectType: 'glassmorphism' as const,
+                            backdropBlur: 16,
+                            backdropSaturate: 180,
+                            fill: 'rgba(255, 255, 255, 0.2)',
+                            stroke: 'rgba(255, 255, 255, 0.35)',
+                            strokeWidth: 1,
+                            borderStyle: 'solid' as const,
+                            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.15)',
+                          }
+                        },
+                        {
+                          name: 'Obsidian Dark',
+                          desc: 'Glass Gelap Elegan',
+                          props: {
+                            effectType: 'glassmorphism' as const,
+                            backdropBlur: 20,
+                            backdropSaturate: 180,
+                            fill: 'rgba(15, 23, 42, 0.65)',
+                            stroke: 'rgba(255, 255, 255, 0.15)',
+                            strokeWidth: 1,
+                            borderStyle: 'solid' as const,
+                            boxShadow: '0 12px 40px 0 rgba(0, 0, 0, 0.5)',
+                          }
+                        },
+                        {
+                          name: 'Aurora Violet',
+                          desc: 'Ungu Cyber Glass',
+                          props: {
+                            effectType: 'glassmorphism' as const,
+                            backdropBlur: 16,
+                            backdropSaturate: 200,
+                            fill: 'rgba(99, 102, 241, 0.22)',
+                            stroke: 'rgba(168, 85, 247, 0.4)',
+                            strokeWidth: 1,
+                            borderStyle: 'solid' as const,
+                            boxShadow: '0 8px 32px 0 rgba(99, 102, 241, 0.25)',
+                          }
+                        },
+                        {
+                          name: 'Ultra Clear',
+                          desc: 'Bening Minimalis',
+                          props: {
+                            effectType: 'glassmorphism' as const,
+                            backdropBlur: 10,
+                            backdropSaturate: 160,
+                            fill: 'rgba(255, 255, 255, 0.08)',
+                            stroke: 'rgba(255, 255, 255, 0.2)',
+                            strokeWidth: 1,
+                            borderStyle: 'solid' as const,
+                            boxShadow: '0 4px 20px 0 rgba(0, 0, 0, 0.1)',
+                          }
+                        }
+                      ].map((preset) => (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => updateNodeStyle(selectedNode.id, preset.props)}
+                          className={`text-left p-2 rounded border flex flex-col gap-0.5 transition ${
+                            style.effectType === 'glassmorphism' && style.backdropBlur === preset.props.backdropBlur
+                              ? 'bg-sky-950/40 border-sky-500 ring-1 ring-sky-500/50'
+                              : isDark ? 'bg-slate-800/80 border-slate-700 hover:border-sky-500' : 'bg-slate-50 border-slate-200 hover:border-sky-500'
+                          }`}
+                        >
+                          <span className="text-[10px] font-semibold text-slate-200">{preset.name}</span>
+                          <span className="text-[9px] text-slate-400">{preset.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Sliders: Backdrop Blur & Saturate */}
+                    <div className="flex flex-col gap-2 pt-1 border-t border-slate-800/40">
+                      <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="text-[10px] text-slate-500">Backdrop Blur</label>
+                          <span className="text-[10px] font-mono text-sky-400">{style.backdropBlur || 0}px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="40"
+                          step="1"
+                          value={style.backdropBlur || 0}
+                          onChange={(e) => updateNodeStyle(selectedNode.id, { 
+                            backdropBlur: Number(e.target.value),
+                            effectType: Number(e.target.value) > 0 ? 'glassmorphism' : style.effectType
+                          })}
+                          className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="text-[10px] text-slate-500">Backdrop Saturation</label>
+                          <span className="text-[10px] font-mono text-sky-400">{style.backdropSaturate || 180}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="100"
+                          max="250"
+                          step="5"
+                          value={style.backdropSaturate || 180}
+                          onChange={(e) => updateNodeStyle(selectedNode.id, { backdropSaturate: Number(e.target.value) })}
+                          className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 2: SHADOW ELEVATION */}
+                {activeEffectTab === 'shadow' && (
+                  <div className="flex flex-col gap-2.5">
+                    <span className="text-[10px] font-semibold text-indigo-400 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-indigo-400" />
+                      Elevation & Drop Shadow Presets
+                    </span>
+
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        {
+                          name: 'Soft Floating',
+                          desc: 'Bayangan Halus Modern',
+                          shadow: '0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.12)',
+                        },
+                        {
+                          name: 'Elevated Card',
+                          desc: 'Kartu Mengambang',
+                          shadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.25)',
+                        },
+                        {
+                          name: 'Deep 3D Pop',
+                          desc: 'Timbul Tegas 3D',
+                          shadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)',
+                        },
+                        {
+                          name: 'Inner Inset',
+                          desc: 'Bayangan Masuk Kedalam',
+                          shadow: 'inset 0 4px 8px rgba(0, 0, 0, 0.3)',
+                        },
+                        {
+                          name: 'Ambient Indigo',
+                          desc: 'Pendaran Warna Gelap',
+                          shadow: '0 15px 30px -5px rgba(99, 102, 241, 0.35)',
+                        },
+                        {
+                          name: 'Subtle Border Shadow',
+                          desc: 'Bayangan Tipis Presisi',
+                          shadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                        }
+                      ].map((preset) => (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => updateNodeStyle(selectedNode.id, { 
+                            boxShadow: preset.shadow,
+                            effectType: 'shadow'
+                          })}
+                          className={`text-left p-2 rounded border flex flex-col gap-0.5 transition ${
+                            style.boxShadow === preset.shadow
+                              ? 'bg-indigo-950/40 border-indigo-500 ring-1 ring-indigo-500/50'
+                              : isDark ? 'bg-slate-800/80 border-slate-700 hover:border-indigo-500' : 'bg-slate-50 border-slate-200 hover:border-indigo-500'
+                          }`}
+                        >
+                          <span className="text-[10px] font-semibold text-slate-200">{preset.name}</span>
+                          <span className="text-[9px] text-slate-400">{preset.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Custom Box Shadow Direct Input */}
+                    <div className="pt-1 border-t border-slate-800/40">
+                      <label className="text-[10px] text-slate-500 block mb-0.5">Custom CSS Box Shadow</label>
+                      <input
+                        type="text"
+                        value={style.boxShadow || ''}
+                        placeholder="e.g. 0 10px 25px rgba(0,0,0,0.2)"
+                        onChange={(e) => updateNodeStyle(selectedNode.id, { 
+                          boxShadow: e.target.value,
+                          effectType: 'shadow'
+                        })}
+                        className="w-full bg-slate-800/80 border border-slate-700 rounded px-2 py-1 text-xs font-mono text-slate-200 outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 3: NEON GLOW */}
+                {activeEffectTab === 'glow' && (
+                  <div className="flex flex-col gap-2.5">
+                    <span className="text-[10px] font-semibold text-pink-400 flex items-center gap-1">
+                      <Zap className="w-3 h-3 text-pink-400" />
+                      Outer Neon Glow & Aura
+                    </span>
+
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        {
+                          name: 'Cyan Cyber Glow',
+                          color: '#06b6d4',
+                          shadow: '0 0 25px rgba(6, 182, 212, 0.7), 0 0 50px rgba(6, 182, 212, 0.3)',
+                        },
+                        {
+                          name: 'Violet Aura',
+                          color: '#8b5cf6',
+                          shadow: '0 0 30px rgba(139, 92, 246, 0.7), 0 0 60px rgba(139, 92, 246, 0.3)',
+                        },
+                        {
+                          name: 'Amber Fire Flare',
+                          color: '#f59e0b',
+                          shadow: '0 0 30px rgba(245, 158, 11, 0.75), 0 0 60px rgba(239, 68, 68, 0.35)',
+                        },
+                        {
+                          name: 'Pink Laser Glow',
+                          color: '#ec4899',
+                          shadow: '0 0 25px rgba(236, 72, 153, 0.75), 0 0 50px rgba(236, 72, 153, 0.3)',
+                        },
+                        {
+                          name: 'Emerald Neon',
+                          color: '#10b981',
+                          shadow: '0 0 25px rgba(16, 185, 129, 0.7), 0 0 50px rgba(16, 185, 129, 0.3)',
+                        },
+                        {
+                          name: 'Crimson Plasma',
+                          color: '#ef4444',
+                          shadow: '0 0 25px rgba(239, 68, 68, 0.75), 0 0 50px rgba(239, 68, 68, 0.35)',
+                        }
+                      ].map((preset) => (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => updateNodeStyle(selectedNode.id, { 
+                            boxShadow: preset.shadow,
+                            glowColor: preset.color,
+                            effectType: 'glow'
+                          })}
+                          className={`text-left p-2 rounded border flex items-center gap-2 transition ${
+                            style.boxShadow === preset.shadow
+                              ? 'bg-pink-950/40 border-pink-500 ring-1 ring-pink-500/50'
+                              : isDark ? 'bg-slate-800/80 border-slate-700 hover:border-pink-500' : 'bg-slate-50 border-slate-200 hover:border-pink-500'
+                          }`}
+                        >
+                          <div className="w-3.5 h-3.5 rounded-full shrink-0 shadow" style={{ backgroundColor: preset.color, boxShadow: `0 0 8px ${preset.color}` }} />
+                          <span className="text-[10px] font-semibold text-slate-200">{preset.name}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Custom Glow Builder */}
+                    <div className="flex flex-col gap-2 pt-1 border-t border-slate-800/40">
+                      <div>
+                        <label className="text-[10px] text-slate-500 block mb-0.5">Warna Neon Glow</label>
+                        <div className={`flex items-center gap-1.5 border rounded p-1 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-300'}`}>
+                          <input
+                            type="color"
+                            value={style.glowColor || '#06b6d4'}
+                            onChange={(e) => {
+                              const col = e.target.value;
+                              const blur = style.glowBlur || 25;
+                              updateNodeStyle(selectedNode.id, {
+                                glowColor: col,
+                                effectType: 'glow',
+                                boxShadow: `0 0 ${blur}px ${col}b3, 0 0 ${blur * 2}px ${col}4d`
+                              });
+                            }}
+                            className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
+                          />
+                          <input
+                            type="text"
+                            value={style.glowColor || '#06b6d4'}
+                            onChange={(e) => {
+                              const col = e.target.value;
+                              const blur = style.glowBlur || 25;
+                              updateNodeStyle(selectedNode.id, {
+                                glowColor: col,
+                                effectType: 'glow',
+                                boxShadow: `0 0 ${blur}px ${col}b3, 0 0 ${blur * 2}px ${col}4d`
+                              });
+                            }}
+                            className="w-full bg-transparent font-mono outline-none text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="text-[10px] text-slate-500">Radius Pendaran Glow</label>
+                          <span className="text-[10px] font-mono text-pink-400">{style.glowBlur || 25}px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="5"
+                          max="60"
+                          step="1"
+                          value={style.glowBlur || 25}
+                          onChange={(e) => {
+                            const blur = Number(e.target.value);
+                            const col = style.glowColor || '#06b6d4';
+                            updateNodeStyle(selectedNode.id, {
+                              glowBlur: blur,
+                              effectType: 'glow',
+                              boxShadow: `0 0 ${blur}px ${col}b3, 0 0 ${blur * 2}px ${col}4d`
+                            });
+                          }}
+                          className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-pink-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 4: NEO-BRUTALISM */}
+                {activeEffectTab === 'neo' && (
+                  <div className="flex flex-col gap-2.5">
+                    <span className="text-[10px] font-semibold text-yellow-400 flex items-center gap-1">
+                      <Shield className="w-3 h-3 text-yellow-400" />
+                      Neo-Brutalism Retro Presets
+                    </span>
+
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        {
+                          name: 'Pop Yellow Hard',
+                          fill: '#FFE600',
+                          stroke: '#000000',
+                          strokeWidth: 2.5,
+                          borderRadius: 4,
+                          boxShadow: '4px 4px 0px #000000',
+                        },
+                        {
+                          name: 'Brutal Red Punch',
+                          fill: '#FF5757',
+                          stroke: '#000000',
+                          strokeWidth: 3,
+                          borderRadius: 0,
+                          boxShadow: '6px 6px 0px #000000',
+                        },
+                        {
+                          name: 'Cyan Retro Box',
+                          fill: '#00F0FF',
+                          stroke: '#000000',
+                          strokeWidth: 2.5,
+                          borderRadius: 6,
+                          boxShadow: '5px 5px 0px #000000',
+                        },
+                        {
+                          name: 'Cyber Pink Block',
+                          fill: '#FF90E8',
+                          stroke: '#000000',
+                          strokeWidth: 3,
+                          borderRadius: 0,
+                          boxShadow: '6px 6px 0px #000000',
+                        },
+                        {
+                          name: 'Lime Energy',
+                          fill: '#A3E635',
+                          stroke: '#000000',
+                          strokeWidth: 2.5,
+                          borderRadius: 4,
+                          boxShadow: '5px 5px 0px #000000',
+                        },
+                        {
+                          name: 'Monochrome Classic',
+                          fill: '#FFFFFF',
+                          stroke: '#000000',
+                          strokeWidth: 2,
+                          borderRadius: 8,
+                          boxShadow: '5px 5px 0px #000000',
+                        }
+                      ].map((preset) => (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => updateNodeStyle(selectedNode.id, {
+                            effectType: 'neobrutalism',
+                            fill: preset.fill,
+                            stroke: preset.stroke,
+                            strokeWidth: preset.strokeWidth,
+                            borderStyle: 'solid',
+                            borderRadius: preset.borderRadius,
+                            borderTopLeftRadius: preset.borderRadius,
+                            borderTopRightRadius: preset.borderRadius,
+                            borderBottomRightRadius: preset.borderRadius,
+                            borderBottomLeftRadius: preset.borderRadius,
+                            boxShadow: preset.boxShadow,
+                            neoShadowOffsetX: 5,
+                            neoShadowOffsetY: 5,
+                            neoShadowColor: '#000000'
+                          })}
+                          className={`text-left p-2 rounded border flex items-center gap-2 transition ${
+                            style.effectType === 'neobrutalism' && style.fill === preset.fill
+                              ? 'bg-yellow-950/40 border-yellow-500 ring-1 ring-yellow-500/50'
+                              : isDark ? 'bg-slate-800/80 border-slate-700 hover:border-yellow-500' : 'bg-slate-50 border-slate-200 hover:border-yellow-500'
+                          }`}
+                        >
+                          <div
+                            className="w-4 h-4 rounded shrink-0 border border-black"
+                            style={{ backgroundColor: preset.fill, boxShadow: '1.5px 1.5px 0px #000' }}
+                          />
+                          <span className="text-[10px] font-semibold text-slate-200">{preset.name}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Neo-Brutalism Shadow Offset Sliders */}
+                    <div className="flex flex-col gap-2 pt-1 border-t border-slate-800/40">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] text-slate-500 block mb-0.5">Offset X (px)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="30"
+                            value={style.neoShadowOffsetX ?? 5}
+                            onChange={(e) => {
+                              const ox = Number(e.target.value);
+                              const oy = style.neoShadowOffsetY ?? 5;
+                              const col = style.neoShadowColor || '#000000';
+                              updateNodeStyle(selectedNode.id, {
+                                neoShadowOffsetX: ox,
+                                effectType: 'neobrutalism',
+                                boxShadow: `${ox}px ${oy}px 0px ${col}`
+                              });
+                            }}
+                            className={inputClass}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-slate-500 block mb-0.5">Offset Y (px)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="30"
+                            value={style.neoShadowOffsetY ?? 5}
+                            onChange={(e) => {
+                              const oy = Number(e.target.value);
+                              const ox = style.neoShadowOffsetX ?? 5;
+                              const col = style.neoShadowColor || '#000000';
+                              updateNodeStyle(selectedNode.id, {
+                                neoShadowOffsetY: oy,
+                                effectType: 'neobrutalism',
+                                boxShadow: `${ox}px ${oy}px 0px ${col}`
+                              });
+                            }}
+                            className={inputClass}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-slate-500 block mb-0.5">Hard Shadow Color</label>
+                        <div className={`flex items-center gap-1.5 border rounded p-1 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-300'}`}>
+                          <input
+                            type="color"
+                            value={style.neoShadowColor || '#000000'}
+                            onChange={(e) => {
+                              const col = e.target.value;
+                              const ox = style.neoShadowOffsetX ?? 5;
+                              const oy = style.neoShadowOffsetY ?? 5;
+                              updateNodeStyle(selectedNode.id, {
+                                neoShadowColor: col,
+                                effectType: 'neobrutalism',
+                                boxShadow: `${ox}px ${oy}px 0px ${col}`
+                              });
+                            }}
+                            className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
+                          />
+                          <input
+                            type="text"
+                            value={style.neoShadowColor || '#000000'}
+                            onChange={(e) => {
+                              const col = e.target.value;
+                              const ox = style.neoShadowOffsetX ?? 5;
+                              const oy = style.neoShadowOffsetY ?? 5;
+                              updateNodeStyle(selectedNode.id, {
+                                neoShadowColor: col,
+                                effectType: 'neobrutalism',
+                                boxShadow: `${ox}px ${oy}px 0px ${col}`
+                              });
+                            }}
+                            className="w-full bg-transparent font-mono outline-none text-xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* RESET EFFECT BUTTON */}
+                <div className="pt-2 border-t border-slate-800/40 flex justify-between items-center">
+                  <span className="text-[9px] text-slate-500">Hapus efek & kembalikan ke default</span>
+                  <button
+                    type="button"
+                    onClick={() => updateNodeStyle(selectedNode.id, {
+                      effectType: 'none',
+                      backdropBlur: 0,
+                      backdropSaturate: 100,
+                      boxShadow: 'none',
+                      glowColor: undefined,
+                      glowBlur: undefined,
+                      neoShadowOffsetX: undefined,
+                      neoShadowOffsetY: undefined,
+                      neoShadowColor: undefined,
+                    })}
+                    className="text-[9px] px-2 py-1 rounded border border-slate-700 text-slate-400 hover:text-rose-400 hover:border-rose-500/50 hover:bg-rose-950/20 transition flex items-center gap-1"
+                  >
+                    <RefreshCw className="w-2.5 h-2.5" />
+                    Reset Special Effects
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
         )}
 
         {/* 5. TYPOGRAPHY (for Text Node) */}

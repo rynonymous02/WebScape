@@ -181,6 +181,9 @@ export const generateTailwind = (
     if (s.boxShadow && s.boxShadow !== 'none') {
       classes.push('shadow-lg');
     }
+    if (s.backdropBlur && s.backdropBlur > 0) {
+      classes.push(`backdrop-blur-[${s.backdropBlur}px]`);
+    }
     if (s.opacity !== undefined && s.opacity < 1) {
       classes.push(`opacity-[${s.opacity}]`);
     }

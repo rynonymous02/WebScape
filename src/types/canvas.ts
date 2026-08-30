@@ -87,6 +87,23 @@ export interface NodeStyle {
   borderStyle: 'none' | 'solid' | 'dashed' | 'dotted';
   boxShadow: string;
 
+  // Special Effects (Glassmorphism, Shadow, Glow, Neo-Brutalism)
+  effectType?: 'none' | 'glassmorphism' | 'shadow' | 'glow' | 'neobrutalism';
+  backdropBlur?: number;
+  backdropSaturate?: number;
+  glowColor?: string;
+  glowBlur?: number;
+  glowSpread?: number;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  shadowBlur?: number;
+  shadowSpread?: number;
+  shadowColor?: string;
+  shadowInset?: boolean;
+  neoShadowOffsetX?: number;
+  neoShadowOffsetY?: number;
+  neoShadowColor?: string;
+
   // Typography (for text nodes)
   fontFamily: string;
   fontSize: number;

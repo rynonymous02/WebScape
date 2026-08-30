@@ -246,8 +246,12 @@ export const SVGCanvas: React.FC = () => {
       // 5. DIRECT CORNER RADIUS MANIPULATION (Smooth, Linear, Full-Span Curvature)
       if (dragState.mode === 'radius' && selectedNode && dragState.corner && dragState.nodeStartGeom) {
         const { width, height } = dragState.nodeStartGeom;
-        // For single corner (Shift mode), allow full dimension span up to Math.max(width, height)
-        const maxRadius = e.shiftKey ? Math.max(width, height) : Math.max(width, height);
+        // For 4 corners: maximum radius is half of the smallest dimension (Math.min(width, height) / 2)
+        // For 1 corner (Shift mode): maximum radius is the full smallest dimension (Math.min(width, height))
+        const maxRadius = e.shiftKey
+          ? Math.round(Math.min(width, height))
+          : Math.round(Math.min(width, height) / 2);
+
         const pos = screenToCanvasCoords(e.clientX, e.clientY);
 
         const dx = pos.x - dragState.startX;
@@ -279,12 +283,12 @@ export const SVGCanvas: React.FC = () => {
             updateNodeStyle(selectedNode.id, { borderBottomLeftRadius: newRadius });
           }
           setLiveRadiusInfo({
-            text: `${dragState.corner.toUpperCase()} Corner: ${newRadius}px [Single Corner]`,
+            text: `${dragState.corner.toUpperCase()} Corner: ${newRadius}px [Max: ${maxRadius}px]`,
             clientX: e.clientX,
             clientY: e.clientY - 25,
           });
         } else {
-          // Normal drag: modify ALL 4 corners equally
+          // Normal drag: modify ALL 4 corners equally with max limit min(width, height)/2
           updateNodeStyle(selectedNode.id, {
             borderRadius: newRadius,
             borderTopLeftRadius: newRadius,
@@ -293,7 +297,7 @@ export const SVGCanvas: React.FC = () => {
             borderBottomLeftRadius: newRadius,
           });
           setLiveRadiusInfo({
-            text: `All 4 Corners: ${newRadius}px`,
+            text: `All 4 Corners: ${newRadius}px [Max: ${maxRadius}px]`,
             clientX: e.clientX,
             clientY: e.clientY - 25,
           });
@@ -613,6 +617,12 @@ export const SVGCanvas: React.FC = () => {
       })(),
       border: style.strokeWidth > 0 && style.stroke !== 'transparent' ? `${style.strokeWidth}px ${style.borderStyle || 'solid'} ${style.stroke}` : undefined,
       boxShadow: style.boxShadow !== 'none' ? style.boxShadow : undefined,
+      backdropFilter: style.backdropBlur && style.backdropBlur > 0
+        ? `blur(${style.backdropBlur}px) saturate(${style.backdropSaturate || 180}%)`
+        : undefined,
+      WebkitBackdropFilter: style.backdropBlur && style.backdropBlur > 0
+        ? `blur(${style.backdropBlur}px) saturate(${style.backdropSaturate || 180}%)`
+        : undefined,
       opacity: style.opacity,
       boxSizing: 'border-box',
       cursor: activeTool === 'select' ? (node.parentId && posMode === 'static' ? 'pointer' : 'move') : 'default',
