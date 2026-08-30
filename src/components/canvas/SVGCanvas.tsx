@@ -36,6 +36,7 @@ export const SVGCanvas: React.FC = () => {
     gridSize,
     setHoveredId,
     pushHistorySnapshot,
+    clipContent,
     theme,
   } = useProjectStore();
 
@@ -102,6 +103,7 @@ export const SVGCanvas: React.FC = () => {
     startY: number;
     startRadius?: number;
     nodeStartGeom?: { x: number; y: number; width: number; height: number; rotation: number };
+    startStyleOffsets?: { left: number; top: number };
     drawStartPos?: { x: number; y: number };
     drawingNodeId?: string;
   }>({ mode: 'none', startX: 0, startY: 0 });
@@ -145,7 +147,7 @@ export const SVGCanvas: React.FC = () => {
       }
 
       if (dragState.mode === 'move' && selectedNode && dragState.nodeStartGeom) {
-        if (selectedNode.parentId && (selectedNode.style.position === 'static' || selectedNode.style.position === 'sticky')) {
+        if (selectedNode.parentId && selectedNode.style.position === 'static') {
           return;
         }
 
@@ -153,14 +155,33 @@ export const SVGCanvas: React.FC = () => {
         const dx = pos.x - dragState.startX;
         const dy = pos.y - dragState.startY;
 
+        const newX = dragState.nodeStartGeom.x + dx;
+        const newY = dragState.nodeStartGeom.y + dy;
+
         updateNodeGeometry(
           selectedNode.id,
-          dragState.nodeStartGeom.x + dx,
-          dragState.nodeStartGeom.y + dy,
+          newX,
+          newY,
           dragState.nodeStartGeom.width,
           dragState.nodeStartGeom.height,
           dragState.nodeStartGeom.rotation
         );
+
+        // Synchronize style.left & style.top for relative, absolute, sticky offsets
+        const posMode = selectedNode.style.position || (selectedNode.parentId ? 'static' : 'relative');
+        if (posMode === 'absolute' || posMode === 'fixed') {
+          updateNodeStyle(selectedNode.id, {
+            left: newX,
+            top: newY,
+          });
+        } else if (posMode === 'relative' || posMode === 'sticky') {
+          const startLeft = dragState.startStyleOffsets?.left ?? 0;
+          const startTop = dragState.startStyleOffsets?.top ?? 0;
+          updateNodeStyle(selectedNode.id, {
+            left: Math.round(startLeft + dx),
+            top: Math.round(startTop + dy),
+          });
+        }
         return;
       }
 
@@ -465,11 +486,16 @@ export const SVGCanvas: React.FC = () => {
 
       pushHistorySnapshot();
       const pos = screenToCanvasCoords(e.clientX, e.clientY);
+      const isRelOrSticky = style.position === 'relative' || style.position === 'sticky';
       setDragState({
         mode: 'move',
         startX: pos.x,
         startY: pos.y,
         nodeStartGeom: { x: node.x, y: node.y, width: node.width, height: node.height, rotation: node.rotation },
+        startStyleOffsets: {
+          left: style.left !== undefined ? style.left : (node.parentId ? (isRelOrSticky ? 0 : node.x) : node.x),
+          top: style.top !== undefined ? style.top : (node.parentId ? (isRelOrSticky ? 0 : node.y) : node.y),
+        },
       });
     };
 
@@ -487,32 +513,34 @@ export const SVGCanvas: React.FC = () => {
         topVal = style.top !== undefined ? `${style.top}px` : `${node.y}px`;
         if (style.right !== undefined) rightVal = `${style.right}px`;
         if (style.bottom !== undefined) bottomVal = `${style.bottom}px`;
-      } else if (posMode === 'relative') {
-        const effX = style.left !== undefined ? style.left : node.x;
-        const effY = style.top !== undefined ? style.top : node.y;
-        if (effX !== 0) leftVal = `${effX}px`;
-        if (effY !== 0) topVal = `${effY}px`;
-        if (style.right !== undefined) rightVal = `${style.right}px`;
-        if (style.bottom !== undefined) bottomVal = `${style.bottom}px`;
-      } else if (posMode === 'sticky') {
-        topVal = style.top !== undefined ? `${style.top}px` : `0px`;
-        if (style.bottom !== undefined) bottomVal = `${style.bottom}px`;
+      } else if (posMode === 'relative' || posMode === 'sticky') {
         if (style.left !== undefined) leftVal = `${style.left}px`;
+        if (style.top !== undefined) topVal = `${style.top}px`;
         if (style.right !== undefined) rightVal = `${style.right}px`;
+        if (style.bottom !== undefined) bottomVal = `${style.bottom}px`;
       }
     }
 
+    const overflowVal: React.CSSProperties['overflow'] = (() => {
+      if (!clipContent) return 'visible';
+      if (style.overflow) return style.overflow as any;
+      if (node.type === 'frame') {
+        return node.frameRole === 'wrapper' ? 'visible' : 'hidden';
+      }
+      if (node.type === 'rectangle' || node.type === 'ellipse') {
+        return 'hidden';
+      }
+      return undefined;
+    })();
+
     const isSticky = !isRoot && posMode === 'sticky';
     const commonStyle: React.CSSProperties = {
-      position: isRoot ? 'relative' : posMode,
+      position: isRoot ? 'relative' : (posMode === 'sticky' ? 'relative' : posMode),
       left: leftVal,
       top: topVal,
       right: rightVal,
       bottom: bottomVal,
-      marginTop: isSticky && style.top && style.top > 0 ? `${style.top}px` : undefined,
-      marginRight: isSticky && style.right && style.right > 0 ? `${style.right}px` : undefined,
-      marginBottom: isSticky && style.bottom && style.bottom > 0 ? `${style.bottom}px` : undefined,
-      marginLeft: isSticky && style.left && style.left > 0 ? `${style.left}px` : undefined,
+      overflow: overflowVal,
       zIndex: style.zIndex && style.zIndex > 1 ? style.zIndex : (isSticky ? 50 : undefined),
       display: style.display,
       flexDirection: style.flexDirection,
@@ -729,24 +757,26 @@ export const SVGCanvas: React.FC = () => {
       const objectFit = style.objectFit || 'cover';
       const vectorColor = style.vectorColor || '#6366f1';
 
-      // Calculate overlay gradient or solid overlay for image/vector
+      // Calculate overlay gradient or solid overlay for image/vector only if overlayEnabled is true
       const overlayColor = style.overlayColor || '#000000';
-      const isGradientOverlay = style.overlayGradient ?? false;
+      const isOverlayActive = style.overlayEnabled ?? false;
       let overlayGrad: string | null = null;
-      if (isGradientOverlay) {
-        const angle = style.overlayAngle ?? 90;
-        const startOpacity = style.overlayStartOpacity ?? 0;
-        const endOpacity = style.overlayEndOpacity ?? 0;
-        const startPos = style.overlayStartPos ?? 0;
-        const endPos = style.overlayEndPos ?? 100;
-        if (startOpacity > 0 || endOpacity > 0) {
-          overlayGrad = `linear-gradient(${angle}deg, ${hexToRgba(overlayColor, startOpacity)} ${startPos}%, ${hexToRgba(overlayColor, endOpacity)} ${endPos}%)`;
-        }
-      } else {
-        const solidOpacity = style.overlayOpacity ?? 0;
-        if (solidOpacity > 0) {
-          const rgba = hexToRgba(overlayColor, solidOpacity);
-          overlayGrad = `linear-gradient(${rgba}, ${rgba})`;
+      if (isOverlayActive) {
+        if (style.overlayGradient) {
+          const angle = style.overlayAngle ?? 90;
+          const startOpacity = style.overlayStartOpacity ?? 0;
+          const endOpacity = style.overlayEndOpacity ?? 0;
+          const startPos = style.overlayStartPos ?? 0;
+          const endPos = style.overlayEndPos ?? 100;
+          if (startOpacity > 0 || endOpacity > 0) {
+            overlayGrad = `linear-gradient(${angle}deg, ${hexToRgba(overlayColor, startOpacity)} ${startPos}%, ${hexToRgba(overlayColor, endOpacity)} ${endPos}%)`;
+          }
+        } else {
+          const solidOpacity = style.overlayOpacity ?? 0;
+          if (solidOpacity > 0) {
+            const rgba = hexToRgba(overlayColor, solidOpacity);
+            overlayGrad = `linear-gradient(${rgba}, ${rgba})`;
+          }
         }
       }
 
@@ -759,11 +789,13 @@ export const SVGCanvas: React.FC = () => {
           onPointerLeave={() => setHoveredId(null)}
           style={{
             ...commonStyle,
+            backgroundColor: style.fill !== 'transparent' ? style.fill : undefined,
             overflow: 'hidden',
             position: posMode === 'static' ? 'relative' : commonStyle.position,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            mixBlendMode: !isVector && blendMode && blendMode !== 'normal' ? (blendMode as any) : undefined,
           }}
         >
           {isVector ? (
@@ -863,7 +895,7 @@ export const SVGCanvas: React.FC = () => {
     const rotX = absX + width / 2;
     const rotY = absY - 25;
 
-    const isMovable = !selectedNode.parentId || (selectedNode.style.position !== 'static' && selectedNode.style.position !== 'sticky');
+    const isMovable = !selectedNode.parentId || selectedNode.style.position !== 'static';
 
     const handleBoundingBoxPointerDown = (e: React.PointerEvent) => {
       if (e.button === 1 || isSpacePressed || isPanning) {
@@ -876,6 +908,7 @@ export const SVGCanvas: React.FC = () => {
       if (!isMovable) return;
       pushHistorySnapshot();
       const pos = screenToCanvasCoords(e.clientX, e.clientY);
+      const isRelOrSticky = selectedNode.style.position === 'relative' || selectedNode.style.position === 'sticky';
       setDragState({
         mode: 'move',
         startX: pos.x,
@@ -886,6 +919,10 @@ export const SVGCanvas: React.FC = () => {
           width: selectedNode.width,
           height: selectedNode.height,
           rotation: selectedNode.rotation,
+        },
+        startStyleOffsets: {
+          left: selectedNode.style.left !== undefined ? selectedNode.style.left : (selectedNode.parentId ? (isRelOrSticky ? 0 : selectedNode.x) : selectedNode.x),
+          top: selectedNode.style.top !== undefined ? selectedNode.style.top : (selectedNode.parentId ? (isRelOrSticky ? 0 : selectedNode.y) : selectedNode.y),
         },
       });
     };

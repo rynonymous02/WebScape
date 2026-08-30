@@ -3,7 +3,7 @@ import {
   FileText, FolderOpen, Save, Undo, Redo, Trash2, Layers, 
   AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical,
   Code, Image as ImageIcon, Grid, Eye, Compass, LayoutGrid, RotateCcw,
-  ArrowUpToLine, ArrowDownToLine, ArrowUp, ArrowDown, Sliders, Play
+  ArrowUpToLine, ArrowDownToLine, ArrowUp, ArrowDown, Crop, Play
 } from 'lucide-react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { fileSystemService } from '../../services/fileSystem';
@@ -29,11 +29,11 @@ export const HeaderMenu: React.FC = () => {
     showGrid,
     snapToGrid,
     showRulers,
-    showInspector,
+    clipContent,
     toggleGrid,
     toggleSnap,
     toggleRulers,
-    toggleInspector,
+    toggleClipContent,
     setCodeExportOpen,
     setGraphicExportOpen,
     setLivePreviewOpen,
@@ -340,11 +340,11 @@ export const HeaderMenu: React.FC = () => {
           <Eye className="w-3.5 h-3.5" />
         </button>
         <button
-          onClick={toggleInspector}
-          title={showInspector ? "Sembunyikan Panel Properti Kanan" : "Tampilkan Panel Properti Kanan"}
-          className={`p-1.5 rounded transition ${showInspector ? 'bg-indigo-600 text-white' : isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-200 text-slate-600'}`}
+          onClick={toggleClipContent}
+          title={clipContent ? "Tampilkan Konten Menjorok / Overlap dari Frame Utama (Clip: On)" : "Potong Konten di Luar Frame Utama (Clip: Off)"}
+          className={`p-1.5 rounded transition ${!clipContent ? 'bg-indigo-600 text-white' : isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-slate-200 text-slate-600'}`}
         >
-          <Sliders className="w-3.5 h-3.5" />
+          <Crop className="w-3.5 h-3.5" />
         </button>
       </div>
 

@@ -22,10 +22,9 @@ export const generateTailwind = (
         classes.push(pos);
         if (pos === 'sticky') {
           classes.push(s.top !== undefined ? `top-[${s.top}px]` : 'top-0');
-          if (s.top && s.top > 0) classes.push(`mt-[${s.top}px]`);
-          if (s.right && s.right > 0) classes.push(`mr-[${s.right}px]`);
-          if (s.bottom && s.bottom > 0) classes.push(`mb-[${s.bottom}px]`);
-          if (s.left && s.left > 0) classes.push(`ml-[${s.left}px]`);
+          if (s.left !== undefined) classes.push(`left-[${s.left}px]`);
+          if (s.right !== undefined) classes.push(`right-[${s.right}px]`);
+          if (s.bottom !== undefined) classes.push(`bottom-[${s.bottom}px]`);
           classes.push('z-50');
         } else if (pos === 'absolute' || pos === 'fixed') {
           classes.push(`left-[${s.left !== undefined ? s.left : node.x}px]`);
@@ -184,6 +183,13 @@ export const generateTailwind = (
     }
     if (s.opacity !== undefined && s.opacity < 1) {
       classes.push(`opacity-[${s.opacity}]`);
+    }
+    if (s.overflow) {
+      classes.push(`overflow-${s.overflow}`);
+    } else if (node.type === 'frame') {
+      classes.push(node.frameRole === 'wrapper' ? 'overflow-visible' : 'overflow-hidden');
+    } else if (node.type === 'rectangle' || node.type === 'ellipse') {
+      classes.push('overflow-hidden');
     }
 
     // Typography

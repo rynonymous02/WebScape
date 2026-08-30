@@ -64,6 +64,7 @@ export interface NodeStyle {
   gradientColor2?: string;
   meshGradient?: string;
   gradientOpacity?: number;
+  overlayEnabled?: boolean;
   overlayColor?: string;
   overlayOpacity?: number;
   overlayGradient?: boolean;
@@ -118,6 +119,7 @@ export interface NodeStyle {
 
   // General
   opacity: number;
+  overflow?: 'visible' | 'hidden' | 'clip' | 'auto' | 'scroll';
 }
 
 export interface CanvasNode {

@@ -34,13 +34,9 @@ export const generateRawCSS = (
         rules.push(`  position: ${pos};`);
         if (pos === 'sticky') {
           rules.push(`  top: ${s.top !== undefined ? s.top : 0}px;`);
-          if (s.top && s.top > 0) rules.push(`  margin-top: ${s.top}px;`);
-          if (s.right && s.right > 0) rules.push(`  margin-right: ${s.right}px;`);
-          if (s.bottom && s.bottom > 0) rules.push(`  margin-bottom: ${s.bottom}px;`);
-          if (s.left && s.left > 0) rules.push(`  margin-left: ${s.left}px;`);
-          if (s.bottom !== undefined && (!s.bottom || s.bottom <= 0)) rules.push(`  bottom: ${s.bottom}px;`);
-          if (s.left !== undefined && (!s.left || s.left <= 0)) rules.push(`  left: ${s.left}px;`);
-          if (s.right !== undefined && (!s.right || s.right <= 0)) rules.push(`  right: ${s.right}px;`);
+          if (s.left !== undefined) rules.push(`  left: ${s.left}px;`);
+          if (s.right !== undefined) rules.push(`  right: ${s.right}px;`);
+          if (s.bottom !== undefined) rules.push(`  bottom: ${s.bottom}px;`);
         } else if (pos === 'absolute' || pos === 'fixed') {
           rules.push(`  left: ${s.left !== undefined ? s.left : node.x}px;`);
           rules.push(`  top: ${s.top !== undefined ? s.top : node.y}px;`);
@@ -219,6 +215,13 @@ export const generateRawCSS = (
     }
     if (s.opacity !== undefined && s.opacity < 1) {
       rules.push(`  opacity: ${s.opacity};`);
+    }
+    if (s.overflow) {
+      rules.push(`  overflow: ${s.overflow};`);
+    } else if (node.type === 'frame') {
+      rules.push(`  overflow: ${node.frameRole === 'wrapper' ? 'visible' : 'hidden'};`);
+    } else if (node.type === 'rectangle' || node.type === 'ellipse') {
+      rules.push(`  overflow: hidden;`);
     }
 
     // Typography

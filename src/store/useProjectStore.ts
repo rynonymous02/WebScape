@@ -31,6 +31,7 @@ interface ProjectStoreState {
   gridSize: number;
   showRulers: boolean;
   showInspector: boolean;
+  clipContent: boolean;
 
   // Assets Management
   customAssets: ProjectAsset[];
@@ -65,6 +66,8 @@ interface ProjectStoreState {
   toggleRulers: () => void;
   toggleInspector: () => void;
   setShowInspector: (show: boolean) => void;
+  toggleClipContent: () => void;
+  setClipContent: (clip: boolean) => void;
 
   // Node Mutations
   addNode: (type: NodeType, x: number, y: number, width?: number, height?: number) => string;
@@ -145,6 +148,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   gridSize: 10,
   showRulers: true,
   showInspector: true,
+  clipContent: true,
 
   // Custom Assets List
   customAssets: initialCustomAssets,
@@ -264,6 +268,8 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   toggleRulers: () => set((state) => ({ showRulers: !state.showRulers })),
   toggleInspector: () => set((state) => ({ showInspector: !state.showInspector })),
   setShowInspector: (show) => set({ showInspector: show }),
+  toggleClipContent: () => set((state) => ({ clipContent: !state.clipContent })),
+  setClipContent: (clip) => set({ clipContent: clip }),
 
   pushHistorySnapshot: () => {
     const { project, undoStack } = get();

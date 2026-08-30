@@ -554,6 +554,23 @@ export const PropertyInspector: React.FC = () => {
                 </select>
               </div>
 
+              {/* OVERFLOW / CONTENT CLIPPING CONTROL */}
+              {(selectedNode.type === 'frame' || selectedNode.type === 'rectangle' || selectedNode.type === 'ellipse') && (
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-0.5">Overflow (Pemotongan Konten Luar)</label>
+                  <select
+                    value={style.overflow || (selectedNode.frameRole === 'wrapper' ? 'visible' : 'hidden')}
+                    onChange={(e) => updateNodeStyle(selectedNode.id, { overflow: e.target.value as any })}
+                    className={selectClass}
+                  >
+                    <option value="hidden">Hidden (Potong konten yang keluar / offset)</option>
+                    <option value="visible">Visible (Tampilkan konten yang offset / menonjol)</option>
+                    <option value="auto">Auto (Scroll jika melebihi batas)</option>
+                    <option value="clip">Clip (Pangkas tepi tanpa scroll)</option>
+                  </select>
+                </div>
+              )}
+
               {!isStatic && (
                 <div className="mt-1">
                   <div className="flex items-center justify-between mb-1">
@@ -1621,44 +1638,83 @@ export const PropertyInspector: React.FC = () => {
                     />
                   </div>
 
-                  {/* Gradient / Solid Overlay Header & Toggle */}
+                  {/* Master Enable/Disable Overlay Toggle */}
                   <div className={`pt-2 border-t flex flex-col gap-2 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
                         <Sparkles className="w-3 h-3 text-sky-400" />
-                        Overlay {style.overlayGradient ? 'Gradient' : 'Solid'}
+                        Overlay Tint (Solid / Gradient)
                       </span>
-                      {/* Mode Switch Toggle */}
                       <div className="flex items-center gap-1.5">
                         <span className={`text-[9px] font-medium transition ${
-                          style.overlayGradient ? 'text-indigo-400 font-semibold' : 'text-slate-400'
+                          style.overlayEnabled ? 'text-indigo-400 font-semibold' : 'text-slate-400'
                         }`}>
-                          {style.overlayGradient ? 'Gradient' : 'Solid'}
+                          {style.overlayEnabled ? 'Aktif' : 'Nonaktif'}
                         </span>
                         <button
                           type="button"
                           role="switch"
-                          aria-checked={!!style.overlayGradient}
-                          onClick={() => updateNodeStyle(selectedNode.id, { 
-                            overlayGradient: !style.overlayGradient,
-                            ...(!style.overlayGradient && (style.overlayStartOpacity === undefined && style.overlayEndOpacity === undefined) ? {
-                              overlayStartOpacity: 0,
-                              overlayEndOpacity: style.overlayOpacity || 0.8
-                            } : {})
-                          })}
+                          aria-checked={!!style.overlayEnabled}
+                          onClick={() => {
+                            const next = !style.overlayEnabled;
+                            updateNodeStyle(selectedNode.id, { 
+                              overlayEnabled: next,
+                              ...(next && (style.overlayOpacity === undefined || style.overlayOpacity === 0) ? { overlayOpacity: 0.4 } : {})
+                            });
+                          }}
                           className={`relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                            style.overlayGradient ? 'bg-indigo-600' : 'bg-slate-600'
+                            style.overlayEnabled ? 'bg-indigo-600' : 'bg-slate-600'
                           }`}
-                          title={style.overlayGradient ? 'Mode Gradient aktif (Klik untuk beralih ke Solid)' : 'Mode Solid aktif (Klik untuk beralih ke Gradient)'}
+                          title={style.overlayEnabled ? 'Nonaktifkan Overlay Tint' : 'Aktifkan Overlay Tint'}
                         >
                           <span
                             className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                              style.overlayGradient ? 'translate-x-3' : 'translate-x-0'
+                              style.overlayEnabled ? 'translate-x-3' : 'translate-x-0'
                             }`}
                           />
                         </button>
                       </div>
                     </div>
+
+                    {!style.overlayEnabled ? (
+                      <div className={`text-[10px] p-2 rounded border flex items-center gap-1.5 ${
+                        isDark ? 'bg-slate-800/60 border-slate-700/60 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'
+                      }`}>
+                        <span>💡</span>
+                        <span>Overlay nonaktif — Blend Mode dapat menyatu langsung (blend) dengan objek atau kanvas di bawahnya.</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {/* Sub-Switch: Solid vs Gradient */}
+                        <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
+                          <span className="text-[10px] text-slate-400">Tipe Overlay:</span>
+                          <div className="flex items-center gap-1 bg-slate-800 p-0.5 rounded border border-slate-700">
+                            <button
+                              type="button"
+                              onClick={() => updateNodeStyle(selectedNode.id, { overlayGradient: false })}
+                              className={`text-[9px] px-2 py-0.5 rounded transition ${
+                                !style.overlayGradient ? 'bg-indigo-600 text-white font-medium shadow' : 'text-slate-400 hover:text-slate-200'
+                              }`}
+                            >
+                              Solid
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateNodeStyle(selectedNode.id, { 
+                                overlayGradient: true,
+                                ...(style.overlayStartOpacity === undefined && style.overlayEndOpacity === undefined ? {
+                                  overlayStartOpacity: 0,
+                                  overlayEndOpacity: style.overlayOpacity || 0.8
+                                } : {})
+                              })}
+                              className={`text-[9px] px-2 py-0.5 rounded transition ${
+                                style.overlayGradient ? 'bg-indigo-600 text-white font-medium shadow' : 'text-slate-400 hover:text-slate-200'
+                              }`}
+                            >
+                              Gradient
+                            </button>
+                          </div>
+                        </div>
 
                     {/* SOLID OVERLAY CONTROLS */}
                     {!style.overlayGradient ? (
@@ -1884,9 +1940,11 @@ export const PropertyInspector: React.FC = () => {
                             />
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 </div>
               </div>
             )}
