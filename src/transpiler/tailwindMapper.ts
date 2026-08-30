@@ -200,6 +200,13 @@ export const generateTailwind = (
       else classes.push('text-left');
     }
 
+    // Image & Vector
+    if (node.type === 'image') {
+      if (s.objectFit) classes.push(`object-${s.objectFit}`);
+      if (s.blendMode && s.blendMode !== 'normal') classes.push(`mix-blend-${s.blendMode}`);
+      if (s.imageType === 'vector' && s.vectorColor) classes.push(`text-[${s.vectorColor}] fill-[${s.vectorColor}]`);
+    }
+
     return classes;
   };
 
@@ -214,6 +221,13 @@ export const generateTailwind = (
     if (node.type === 'text') {
       const Tag = (node.style?.fontSize || 16) >= 20 ? 'h2' : 'p';
       return `${spaces}<${Tag} class="${classList}">${node.text || ''}</${Tag}>`;
+    }
+
+    if (node.type === 'image') {
+      if (node.style.imageType === 'vector' && node.style.svgContent) {
+        return `${spaces}<div class="${classList}">\n${spaces}  ${node.style.svgContent}\n${spaces}</div>`;
+      }
+      return `${spaces}<img class="${classList}" src="${node.style.imageUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80'}" alt="${node.name}" />`;
     }
 
     if (node.type === 'frame' || node.type === 'rectangle' || node.type === 'ellipse') {
@@ -247,6 +261,13 @@ export const generateTailwind = (
     if (node.type === 'text') {
       const Tag = (node.style?.fontSize || 16) >= 20 ? 'h2' : 'p';
       return `${spaces}<${Tag} className="${classList}">{\`${node.text || ''}\`}</${Tag}>`;
+    }
+
+    if (node.type === 'image') {
+      if (node.style.imageType === 'vector' && node.style.svgContent) {
+        return `${spaces}<div className="${classList}">\n${spaces}  ${node.style.svgContent}\n${spaces}</div>`;
+      }
+      return `${spaces}<img className="${classList}" src="${node.style.imageUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80'}" alt="${node.name}" />`;
     }
 
     if (node.type === 'frame' || node.type === 'rectangle' || node.type === 'ellipse') {

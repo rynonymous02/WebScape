@@ -234,6 +234,20 @@ export const generateRawCSS = (
       rules.push(`  text-align: ${s.textAlign || 'left'};`);
     }
 
+    // Image & Vector styling
+    if (node.type === 'image') {
+      if (s.objectFit) {
+        rules.push(`  object-fit: ${s.objectFit};`);
+      }
+      if (s.blendMode && s.blendMode !== 'normal') {
+        rules.push(`  mix-blend-mode: ${s.blendMode};`);
+      }
+      if (s.imageType === 'vector' && s.vectorColor) {
+        rules.push(`  color: ${s.vectorColor};`);
+        rules.push(`  fill: ${s.vectorColor};`);
+      }
+    }
+
     cssRules.push(`.${className} {\n${rules.join('\n')}\n}`);
 
     if (node.children) {
@@ -272,6 +286,13 @@ export const generateRawCSS = (
         return `${spaces}<${Tag} class="${className}">\n${innerHTML}\n${spaces}</${Tag}>`;
       }
       return `${spaces}<${Tag} class="${className}"></${Tag}>`;
+    }
+
+    if (node.type === 'image') {
+      if (node.style.imageType === 'vector' && node.style.svgContent) {
+        return `${spaces}<div class="${className}">\n${spaces}  ${node.style.svgContent}\n${spaces}</div>`;
+      }
+      return `${spaces}<img class="${className}" src="${node.style.imageUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80'}" alt="${node.name}" />`;
     }
 
     if (node.type === 'path' && node.pathPoints) {

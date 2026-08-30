@@ -93,6 +93,8 @@ export function App() {
         setActiveTool('text');
       } else if (e.key.toLowerCase() === 'z') {
         setActiveTool('zoom');
+      } else if (e.key.toLowerCase() === 'i') {
+        setActiveTool('image');
       }
     };
 

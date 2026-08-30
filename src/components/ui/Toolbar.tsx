@@ -1,6 +1,6 @@
 import React from 'react';
 import { 
-  MousePointer, Hand, Square, Circle, PenTool, Type, Frame, ZoomIn,
+  MousePointer, Hand, Square, Circle, PenTool, Type, Frame, ZoomIn, Image as ImageIcon,
   Sun, Moon
 } from 'lucide-react';
 import { useProjectStore } from '../../store/useProjectStore';
@@ -22,6 +22,7 @@ const TOOLS: ToolItem[] = [
   { id: 'path', label: 'Bezier Curve Pen', icon: PenTool, shortcut: 'P' },
   { id: 'text', label: 'Text Heading / Paragraph', icon: Type, shortcut: 'T' },
   { id: 'zoom', label: 'Zoom Tool (Scroll / Click)', icon: ZoomIn, shortcut: 'Z' },
+  { id: 'image', label: 'Image & Vector Object', icon: ImageIcon, shortcut: 'I' },
 ];
 
 export const Toolbar: React.FC = () => {

@@ -15,6 +15,15 @@ export const createDefaultStyle = (override: Partial<NodeStyle> = {}): NodeStyle
   borderStyle: 'none',
   boxShadow: 'none',
 
+  // Image & Vector Object Defaults
+  imageType: 'pixel',
+  imageUrl: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80',
+  svgContent: '<svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
+  blendMode: 'normal',
+  objectFit: 'cover',
+  vectorColor: '#6366f1',
+  vectorColorMode: 'custom',
+
   backgroundType: 'solid',
   gradientFill: '',
   gradientType: 'linear',
@@ -134,6 +143,25 @@ export const createNewNode = (
       strokeWidth: 3,
     });
     if (!customName) name = 'Bezier Curve';
+  } else if (type === 'image') {
+    style = createDefaultStyle({
+      position: 'relative',
+      fill: 'transparent',
+      borderRadius: 8,
+      imageType: 'pixel',
+      imageUrl: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80',
+      svgContent: '<svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
+      blendMode: 'normal',
+      objectFit: 'cover',
+      vectorColor: '#6366f1',
+      vectorColorMode: 'custom',
+      overlayGradient: false,
+      overlayOpacity: 0,
+      overlayColor: '#000000',
+    });
+    if (!customName) name = 'Image Object';
+    if (!width || width === 120) width = 240;
+    if (!height || height === 100) height = 180;
   }
 
   return {

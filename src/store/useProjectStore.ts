@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CanvasNode, NodeStyle, NodeType, ProjectState, ToolType } from '../types/canvas';
+import type { CanvasNode, NodeStyle, NodeType, ProjectState, ToolType, ProjectAsset } from '../types/canvas';
 import { createInitialProject, createNewNode } from '../utils/defaults';
 import { storageService } from '../services/storage';
 
@@ -22,6 +22,7 @@ interface ProjectStoreState {
   activeTool: ToolType;
   selectedIds: string[];
   hoveredId: string | null;
+  leftSidebarTab: 'layers' | 'assets';
 
   // Canvas Viewport & Grid
   canvasTransform: CanvasTransform;
@@ -30,6 +31,13 @@ interface ProjectStoreState {
   gridSize: number;
   showRulers: boolean;
   showInspector: boolean;
+
+  // Assets Management
+  customAssets: ProjectAsset[];
+  addCustomAsset: (asset: Omit<ProjectAsset, 'id' | 'createdAt'>) => string;
+  removeCustomAsset: (id: string) => void;
+  insertAssetToCanvas: (asset: Partial<ProjectAsset>, targetX?: number, targetY?: number) => string;
+  setLeftSidebarTab: (tab: 'layers' | 'assets') => void;
 
   // History Stack (Undo / Redo)
   undoStack: Array<{ nodes: Record<string, CanvasNode>; rootNodeIds: string[] }>;
@@ -98,6 +106,12 @@ interface ProjectStoreState {
 const initialProjectData = createInitialProject();
 const savedTheme = (localStorage.getItem('webscape_theme') as 'dark' | 'light') || 'dark';
 
+const savedAssetsStr = localStorage.getItem('webscape_custom_assets');
+let initialCustomAssets: ProjectAsset[] = [];
+try {
+  if (savedAssetsStr) initialCustomAssets = JSON.parse(savedAssetsStr);
+} catch (e) {}
+
 export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   project: {
     id: `proj_${Date.now()}`,
@@ -119,6 +133,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   activeTool: 'select',
   selectedIds: [initialProjectData.rootNodeIds[0]],
   hoveredId: null,
+  leftSidebarTab: 'layers',
 
   canvasTransform: {
     zoom: 1,
@@ -131,6 +146,72 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   showRulers: true,
   showInspector: true,
 
+  // Custom Assets List
+  customAssets: initialCustomAssets,
+  setLeftSidebarTab: (tab) => set({ leftSidebarTab: tab }),
+
+  addCustomAsset: (assetData) => {
+    const newAsset: ProjectAsset = {
+      ...assetData,
+      id: `asset_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      createdAt: Date.now(),
+    };
+    const updated = [newAsset, ...get().customAssets];
+    try {
+      localStorage.setItem('webscape_custom_assets', JSON.stringify(updated));
+    } catch (e) {}
+    set({ customAssets: updated });
+    return newAsset.id;
+  },
+
+  removeCustomAsset: (id) => {
+    const updated = get().customAssets.filter((a) => a.id !== id);
+    try {
+      localStorage.setItem('webscape_custom_assets', JSON.stringify(updated));
+    } catch (e) {}
+    set({ customAssets: updated });
+  },
+
+  insertAssetToCanvas: (asset, targetX, targetY) => {
+    get().pushHistorySnapshot();
+    const { canvasTransform, addNode, updateNodeStyle, updateNode } = get();
+
+    const w = asset.width || 240;
+    const h = asset.height || 180;
+
+    let x = targetX;
+    let y = targetY;
+
+    if (x === undefined || y === undefined) {
+      const viewportCenterX = (-canvasTransform.panX + window.innerWidth / 2) / canvasTransform.zoom;
+      const viewportCenterY = (-canvasTransform.panY + window.innerHeight / 2) / canvasTransform.zoom;
+      x = Math.round(viewportCenterX - w / 2);
+      y = Math.round(viewportCenterY - h / 2);
+    }
+
+    const newNodeId = addNode('image', Math.max(0, x), Math.max(0, y), w, h);
+
+    if (asset.name) {
+      updateNode(newNodeId, { name: asset.name });
+    }
+
+    if (asset.type === 'vector' || asset.svgContent) {
+      updateNodeStyle(newNodeId, {
+        imageType: 'vector',
+        svgContent: asset.svgContent || '<svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
+        vectorColor: '#6366f1',
+      });
+    } else {
+      updateNodeStyle(newNodeId, {
+        imageType: 'pixel',
+        imageUrl: asset.url || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800',
+        objectFit: 'cover',
+      });
+    }
+
+    return newNodeId;
+  },
+
   undoStack: [],
   redoStack: [],
 
@@ -138,7 +219,12 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   isGraphicExportOpen: false,
   isLivePreviewOpen: false,
 
-  setActiveTool: (tool) => set({ activeTool: tool }),
+  setActiveTool: (tool) => {
+    set({ 
+      activeTool: tool,
+      leftSidebarTab: tool === 'image' ? 'assets' : 'layers',
+    });
+  },
   setSelectedIds: (ids) => set({ selectedIds: ids }),
   toggleSelectId: (id) => {
     const { selectedIds } = get();
@@ -514,36 +600,50 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     const { project } = get();
     const node = project.nodes[id];
     if (!node) return;
+    if (id === newParentId) return;
+
+    // Prevent moving a node inside itself or its own descendants
+    const isDescendant = (ancestorId: string, targetId: string): boolean => {
+      if (ancestorId === targetId) return true;
+      const aNode = project.nodes[ancestorId];
+      if (!aNode || !aNode.children) return false;
+      return aNode.children.some((cid) => isDescendant(cid, targetId));
+    };
+    if (newParentId && isDescendant(id, newParentId)) return;
 
     get().pushHistorySnapshot();
     const updatedNodes = { ...project.nodes };
 
-    if (node.parentId && updatedNodes[node.parentId]) {
-      const oldParent = updatedNodes[node.parentId];
-      updatedNodes[node.parentId] = {
+    const oldParentId = node.parentId;
+
+    // Remove from old parent
+    if (oldParentId && updatedNodes[oldParentId]) {
+      const oldParent = updatedNodes[oldParentId];
+      updatedNodes[oldParentId] = {
         ...oldParent,
         children: oldParent.children.filter((cid) => cid !== id),
       };
     }
+    // Remove from roots if it was a root
     let updatedRoots = project.rootNodeIds.filter((rid) => rid !== id);
 
+    // Update parent reference
     updatedNodes[id] = { ...node, parentId: newParentId };
 
+    // Insert into new parent or roots
     if (newParentId && updatedNodes[newParentId]) {
       const newParent = updatedNodes[newParentId];
       const newChildren = [...newParent.children];
-      if (targetIndex !== undefined) {
-        newChildren.splice(targetIndex, 0, id);
-      } else {
-        newChildren.unshift(id);
-      }
+      let finalIdx = targetIndex !== undefined ? targetIndex : newChildren.length;
+      if (finalIdx < 0) finalIdx = 0;
+      if (finalIdx > newChildren.length) finalIdx = newChildren.length;
+      newChildren.splice(finalIdx, 0, id);
       updatedNodes[newParentId] = { ...newParent, children: newChildren };
     } else {
-      if (targetIndex !== undefined) {
-        updatedRoots.splice(targetIndex, 0, id);
-      } else {
-        updatedRoots.unshift(id);
-      }
+      let finalIdx = targetIndex !== undefined ? targetIndex : updatedRoots.length;
+      if (finalIdx < 0) finalIdx = 0;
+      if (finalIdx > updatedRoots.length) finalIdx = updatedRoots.length;
+      updatedRoots.splice(finalIdx, 0, id);
     }
 
     set({

@@ -1,6 +1,16 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 
+const hexToRgba = (hex: string, alpha: number) => {
+  let clean = (hex || '#000000').replace('#', '');
+  if (clean.length === 3) clean = clean[0] + clean[0] + clean[1] + clean[1] + clean[2] + clean[2];
+  if (clean.length !== 6) return `rgba(0, 0, 0, ${alpha})`;
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 interface TransformHandle {
   id: string;
   cursor: string;
@@ -14,7 +24,9 @@ export const SVGCanvas: React.FC = () => {
     selectedIds,
     setSelectedIds,
     activeTool,
+    setActiveTool,
     addNode,
+    updateNode,
     updateNodeGeometry,
     updateNodeStyle,
     canvasTransform,
@@ -274,8 +286,8 @@ export const SVGCanvas: React.FC = () => {
         const storeState = useProjectStore.getState();
         const node = storeState.project.nodes[dragState.drawingNodeId];
         if (node && node.width <= 20 && node.height <= 20) {
-          const defaultW = node.type === 'ellipse' ? 100 : 120;
-          const defaultH = node.type === 'ellipse' ? 100 : 80;
+          const defaultW = node.type === 'ellipse' ? 100 : (node.type === 'image' ? 240 : 120);
+          const defaultH = node.type === 'ellipse' ? 100 : (node.type === 'image' ? 180 : 80);
           updateNodeGeometry(node.id, node.x, node.y, defaultW, defaultH);
         }
       }
@@ -404,7 +416,7 @@ export const SVGCanvas: React.FC = () => {
       return;
     }
 
-    if (activeTool === 'select') {
+    if (activeTool === 'select' || activeTool === 'image') {
       setSelectedIds([]);
       setSelectionMode('transform');
     }
@@ -430,7 +442,7 @@ export const SVGCanvas: React.FC = () => {
 
       e.stopPropagation();
 
-      if (activeTool !== 'select') {
+      if (activeTool !== 'select' && activeTool !== 'image') {
         handleBackgroundPointerDown(e);
         return;
       }
@@ -443,8 +455,10 @@ export const SVGCanvas: React.FC = () => {
           setSelectedIds([node.id]);
         }
       } else {
-        // Second click on already selected rectangle or frame toggles to radius mode
-        if (node.type === 'rectangle' || node.type === 'frame') {
+        // Second click on already selected rectangle, frame, or pixel image toggles to radius mode
+        // Vector objects do NOT have border radius editing on double click
+        const isVector = node.type === 'image' && (node.style.imageType === 'vector' || Boolean(node.style.svgContent));
+        if (!isVector && (node.type === 'rectangle' || node.type === 'frame' || node.type === 'image')) {
           setSelectionMode((prev) => (prev === 'transform' ? 'radius' : 'transform'));
         }
       }
@@ -709,6 +723,107 @@ export const SVGCanvas: React.FC = () => {
       );
     }
 
+    if (node.type === 'image') {
+      const isVector = style.imageType === 'vector';
+      const blendMode = style.blendMode || 'normal';
+      const objectFit = style.objectFit || 'cover';
+      const vectorColor = style.vectorColor || '#6366f1';
+
+      // Calculate overlay gradient or solid overlay for image/vector
+      const overlayColor = style.overlayColor || '#000000';
+      const isGradientOverlay = style.overlayGradient ?? false;
+      let overlayGrad: string | null = null;
+      if (isGradientOverlay) {
+        const angle = style.overlayAngle ?? 90;
+        const startOpacity = style.overlayStartOpacity ?? 0;
+        const endOpacity = style.overlayEndOpacity ?? 0;
+        const startPos = style.overlayStartPos ?? 0;
+        const endPos = style.overlayEndPos ?? 100;
+        if (startOpacity > 0 || endOpacity > 0) {
+          overlayGrad = `linear-gradient(${angle}deg, ${hexToRgba(overlayColor, startOpacity)} ${startPos}%, ${hexToRgba(overlayColor, endOpacity)} ${endPos}%)`;
+        }
+      } else {
+        const solidOpacity = style.overlayOpacity ?? 0;
+        if (solidOpacity > 0) {
+          const rgba = hexToRgba(overlayColor, solidOpacity);
+          overlayGrad = `linear-gradient(${rgba}, ${rgba})`;
+        }
+      }
+
+      return (
+        <div
+          key={node.id}
+          id={node.id}
+          onPointerDown={handleNodePointerDown}
+          onPointerEnter={() => setHoveredId(node.id)}
+          onPointerLeave={() => setHoveredId(null)}
+          style={{
+            ...commonStyle,
+            overflow: 'hidden',
+            position: posMode === 'static' ? 'relative' : commonStyle.position,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {isVector ? (
+            style.svgContent ? (
+              <div
+                className="w-full h-full flex items-center justify-center pointer-events-none select-none [&>svg]:w-full [&>svg]:h-full"
+                style={{
+                  color: vectorColor,
+                  fill: vectorColor,
+                }}
+                dangerouslySetInnerHTML={{
+                  __html: style.svgContent
+                    .replace(/<svg\b([^>]*)>/i, (_match, p1) => {
+                      let attr = p1;
+                      if (!attr.includes('width=')) attr += ' width="100%"';
+                      if (!attr.includes('height=')) attr += ' height="100%"';
+                      if (!attr.includes('preserveAspectRatio=')) attr += ' preserveAspectRatio="xMidYMid meet"';
+                      return `<svg ${attr}>`;
+                    })
+                }}
+              />
+            ) : (
+              <img
+                src={style.imageUrl || 'https://api.iconify.design/lucide:sparkles.svg'}
+                alt={node.name}
+                className="w-full h-full pointer-events-none select-none"
+                style={{
+                  objectFit,
+                }}
+                draggable={false}
+              />
+            )
+          ) : (
+            <img
+              src={style.imageUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80'}
+              alt={node.name}
+              className="w-full h-full pointer-events-none select-none"
+              style={{
+                objectFit,
+                mixBlendMode: blendMode as any,
+                display: 'block',
+              }}
+              draggable={false}
+            />
+          )}
+
+          {/* Overlay Gradient / Solid Layer */}
+          {overlayGrad && (
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: overlayGrad,
+                borderRadius: 'inherit',
+              }}
+            />
+          )}
+        </div>
+      );
+    }
+
     return null;
   };
 
@@ -824,7 +939,8 @@ export const SVGCanvas: React.FC = () => {
       });
     };
 
-    const isShapeWithRadius = selectedNode.type === 'rectangle' || selectedNode.type === 'frame';
+    const isVector = selectedNode.type === 'image' && (selectedNode.style.imageType === 'vector' || Boolean(selectedNode.style.svgContent));
+    const isShapeWithRadius = !isVector && (selectedNode.type === 'rectangle' || selectedNode.type === 'frame' || selectedNode.type === 'image');
 
     const tlRadius = selectedNode.style.borderTopLeftRadius ?? selectedNode.style.borderRadius ?? 0;
     const trRadius = selectedNode.style.borderTopRightRadius ?? selectedNode.style.borderRadius ?? 0;
@@ -979,6 +1095,105 @@ export const SVGCanvas: React.FC = () => {
     );
   };
 
+  const handleCanvasDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleCanvasDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    // Calculate canvas coordinates
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+    const canvasX = Math.round((clientX - rect.left - canvasTransform.panX) / canvasTransform.zoom);
+    const canvasY = Math.round((clientY - rect.top - canvasTransform.panY) / canvasTransform.zoom);
+
+    // 1. Check if dropped from WebScape AssetPanel
+    const dataStr = e.dataTransfer.getData('application/json');
+    if (dataStr) {
+      try {
+        const data = JSON.parse(dataStr);
+        if (data && data.type === 'asset') {
+          const w = data.width || (data.assetType === 'vector' ? 140 : 240);
+          const h = data.height || (data.assetType === 'vector' ? 140 : 180);
+          const posX = Math.round(canvasX - w / 2);
+          const posY = Math.round(canvasY - h / 2);
+
+          pushHistorySnapshot();
+          const newNodeId = addNode('image', Math.max(0, posX), Math.max(0, posY), w, h);
+          if (data.name) {
+            updateNode(newNodeId, { name: data.name });
+          }
+
+          if (data.assetType === 'vector' || data.svgContent) {
+            updateNodeStyle(newNodeId, {
+              imageType: 'vector',
+              svgContent: data.svgContent,
+              vectorColor: data.vectorColor || '#6366f1',
+            });
+          } else {
+            updateNodeStyle(newNodeId, {
+              imageType: 'pixel',
+              imageUrl: data.imageUrl,
+              objectFit: data.objectFit || 'cover',
+            });
+          }
+
+          setSelectedIds([newNodeId]);
+          setActiveTool('select');
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to parse asset drop', err);
+      }
+    }
+
+    // 2. Check if dropped directly from Desktop / File Explorer (native image/svg files)
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      if (file.type.includes('svg') || file.name.endsWith('.svg')) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const text = event.target?.result as string;
+          if (text) {
+            pushHistorySnapshot();
+            const newNodeId = addNode('image', Math.max(0, canvasX - 70), Math.max(0, canvasY - 70), 140, 140);
+            updateNode(newNodeId, { name: file.name.replace(/\.[^/.]+$/, '') });
+            updateNodeStyle(newNodeId, {
+              imageType: 'vector',
+              svgContent: text,
+              vectorColor: '#6366f1',
+            });
+            setSelectedIds([newNodeId]);
+            setActiveTool('select');
+          }
+        };
+        reader.readAsText(file);
+      } else if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const dataUrl = event.target?.result as string;
+          if (dataUrl) {
+            pushHistorySnapshot();
+            const newNodeId = addNode('image', Math.max(0, canvasX - 130), Math.max(0, canvasY - 90), 260, 180);
+            updateNode(newNodeId, { name: file.name.replace(/\.[^/.]+$/, '') });
+            updateNodeStyle(newNodeId, {
+              imageType: 'pixel',
+              imageUrl: dataUrl,
+              objectFit: 'cover',
+            });
+            setSelectedIds([newNodeId]);
+            setActiveTool('select');
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+  };
+
   const isDark = theme === 'dark';
 
   return (
@@ -990,9 +1205,13 @@ export const SVGCanvas: React.FC = () => {
           ? 'cursor-zoom-in'
           : activeTool === 'hand' || isPanning || isSpacePressed
           ? 'cursor-grab active:cursor-grabbing'
+          : activeTool === 'select' || activeTool === 'image'
+          ? 'cursor-default'
           : 'cursor-crosshair'
       }`}
       onPointerDown={handleBackgroundPointerDown}
+      onDragOver={handleCanvasDragOver}
+      onDrop={handleCanvasDrop}
     >
       <svg
         ref={containerRef}

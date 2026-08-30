@@ -6,9 +6,10 @@ export type ToolType =
   | 'ellipse' 
   | 'path' 
   | 'text' 
-  | 'zoom';
+  | 'zoom'
+  | 'image';
 
-export type NodeType = 'frame' | 'rectangle' | 'ellipse' | 'path' | 'text';
+export type NodeType = 'frame' | 'rectangle' | 'ellipse' | 'path' | 'text' | 'image';
 
 export type FrameRole = 'container' | 'section' | 'wrapper';
 
@@ -41,6 +42,17 @@ export interface NodeStyle {
   stroke: string;
   strokeWidth: number;
   strokeDasharray?: string;
+
+  // Image & Vector Object Properties (Pixel / Vector)
+  imageType?: 'pixel' | 'vector';
+  imageUrl?: string;
+  svgContent?: string;
+  blendMode?: string;
+  objectFit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down';
+  vectorColor?: string;
+  vectorColorMode?: 'original' | 'custom' | 'monochrome';
+  vectorStroke?: string;
+  vectorStrokeWidth?: number;
 
   // Background Image, Gradients & Mesh (for Frames & Wrappers & Sections)
   backgroundType?: 'solid' | 'gradient' | 'mesh' | 'image';
@@ -163,3 +175,17 @@ export interface TranspilerOutput {
     fullFile: string;
   };
 }
+
+export interface ProjectAsset {
+  id: string;
+  name: string;
+  type: 'pixel' | 'vector';
+  url?: string;
+  svgContent?: string;
+  previewUrl?: string;
+  width?: number;
+  height?: number;
+  category?: 'uploaded' | 'preset' | 'vector' | 'icon';
+  createdAt?: number;
+}
+

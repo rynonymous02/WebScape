@@ -169,6 +169,13 @@ export function generateBootstrap(
       return `${indent}<${tag} ${attrName}="${classes}">${node.text || ''}</${tag}>`;
     }
 
+    if (node.type === 'image') {
+      if (node.style.imageType === 'vector' && node.style.svgContent) {
+        return `${indent}<div ${attrName}="${classes}">\n${indent}  ${node.style.svgContent}\n${indent}</div>`;
+      }
+      return `${indent}<img ${attrName}="${classes} img-fluid" src="${node.style.imageUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80'}" alt="${node.name}" />`;
+    }
+
     if (node.type === 'ellipse' || node.type === 'rectangle' || node.type === 'frame') {
       const tag = 'div';
       if (node.children.length === 0) {

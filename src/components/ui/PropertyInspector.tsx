@@ -57,6 +57,25 @@ const MESH_GRADIENT_PRESETS = [
   },
 ];
 
+const BLEND_MODES = [
+  { label: 'Normal', value: 'normal' },
+  { label: 'Multiply (Gelap)', value: 'multiply' },
+  { label: 'Screen (Terang)', value: 'screen' },
+  { label: 'Overlay (Kontras)', value: 'overlay' },
+  { label: 'Darken', value: 'darken' },
+  { label: 'Lighten', value: 'lighten' },
+  { label: 'Color Dodge', value: 'color-dodge' },
+  { label: 'Color Burn', value: 'color-burn' },
+  { label: 'Hard Light', value: 'hard-light' },
+  { label: 'Soft Light', value: 'soft-light' },
+  { label: 'Difference', value: 'difference' },
+  { label: 'Exclusion', value: 'exclusion' },
+  { label: 'Hue', value: 'hue' },
+  { label: 'Saturation', value: 'saturation' },
+  { label: 'Color', value: 'color' },
+  { label: 'Luminosity', value: 'luminosity' },
+];
+
 interface AnglePickerWheelProps {
   angle: number;
   onChange: (newAngle: number) => void;
@@ -1451,6 +1470,429 @@ export const PropertyInspector: React.FC = () => {
           </section>
         )}
 
+        {/* 2B. DYNAMIC IMAGE & VECTOR OBJECT SECTION */}
+        {selectedNode.type === 'image' && (
+          <section className={`flex flex-col gap-2.5 border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+            {renderSectionHeader(
+              'imageObject', 
+              style.imageType === 'vector' ? 'Pengaturan Objek Vektor' : 'Pengaturan Objek Gambar', 
+              style.imageType === 'vector' ? Sparkles : ImageIcon, 
+              style.imageType === 'vector' ? 'text-amber-400' : 'text-pink-400', 
+              (
+                <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono uppercase font-bold border ${
+                  style.imageType === 'vector' 
+                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' 
+                    : 'bg-pink-500/10 text-pink-400 border-pink-500/20'
+                }`}>
+                  {style.imageType === 'vector' ? 'Vector SVG' : 'Pixel Image'}
+                </span>
+              )
+            )}
+
+            {expandedSections['imageObject'] !== false && (
+              <div className="flex flex-col gap-2.5 pt-1">
+                {/* ===== DYNAMIC PIXEL IMAGE CONTROLS ===== */}
+                {style.imageType !== 'vector' && (
+                  <div className="flex flex-col gap-2.5">
+                    {/* Object Fit & Blend Mode */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-slate-500 block mb-0.5">Object Fit</label>
+                        <select
+                          value={style.objectFit || 'cover'}
+                          onChange={(e) => updateNodeStyle(selectedNode.id, { objectFit: e.target.value as any })}
+                          className={selectClass}
+                        >
+                          <option value="cover">Cover (Penuh)</option>
+                          <option value="contain">Contain (Muat)</option>
+                          <option value="fill">Fill (Regang)</option>
+                          <option value="scale-down">Scale Down</option>
+                        </select>
+                      </div>
+
+                      {/* BLEND MODE SELECTOR */}
+                      <div>
+                        <label className="text-[10px] text-slate-500 block mb-0.5 font-medium flex items-center justify-between">
+                          <span>Blend Mode</span>
+                          {style.blendMode && style.blendMode !== 'normal' && (
+                            <span className="text-[9px] text-pink-400 font-mono font-semibold uppercase">{style.blendMode}</span>
+                          )}
+                        </label>
+                        <select
+                          value={style.blendMode || 'normal'}
+                          onChange={(e) => updateNodeStyle(selectedNode.id, { blendMode: e.target.value })}
+                          className={`${selectClass} ${style.blendMode && style.blendMode !== 'normal' ? 'border-pink-500 text-pink-300' : ''}`}
+                        >
+                          {BLEND_MODES.map((bm) => (
+                            <option key={bm.value} value={bm.value}>
+                              {bm.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Quick Blend Mode Badges */}
+                    <div>
+                      <label className="text-[10px] text-slate-500 block mb-1">Preset Blend Mode</label>
+                      <div className="grid grid-cols-4 gap-1">
+                        {[
+                          { label: 'Normal', value: 'normal' },
+                          { label: 'Multiply', value: 'multiply' },
+                          { label: 'Screen', value: 'screen' },
+                          { label: 'Overlay', value: 'overlay' },
+                        ].map((b) => (
+                          <button
+                            key={b.value}
+                            type="button"
+                            onClick={() => updateNodeStyle(selectedNode.id, { blendMode: b.value })}
+                            className={`text-[9px] py-1 rounded border text-center transition ${
+                              (style.blendMode || 'normal') === b.value
+                                ? 'bg-pink-600/30 text-pink-300 border-pink-500 font-semibold'
+                                : isDark
+                                ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-pink-500'
+                                : 'bg-slate-100 text-slate-700 border-slate-200'
+                            }`}
+                          >
+                            {b.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ===== DYNAMIC VECTOR (SVG) CONTROLS ===== */}
+                {style.imageType === 'vector' && (
+                  <div className="flex flex-col gap-2.5">
+                    {/* CUSTOM VECTOR COLOR */}
+                    <div>
+                      <label className="text-[10px] text-slate-500 block mb-0.5">Custom Warna Vektor (Fill / Tint)</label>
+                      <div className={`flex items-center gap-1.5 border rounded p-1 ${
+                        isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-300'
+                      }`}>
+                        <input
+                          type="color"
+                          value={style.vectorColor || '#6366f1'}
+                          onChange={(e) => updateNodeStyle(selectedNode.id, { vectorColor: e.target.value })}
+                          className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
+                        />
+                        <input
+                          type="text"
+                          value={style.vectorColor || '#6366f1'}
+                          onChange={(e) => updateNodeStyle(selectedNode.id, { vectorColor: e.target.value })}
+                          className="w-full bg-transparent font-mono outline-none text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Vector Quick Palette */}
+                    <div className="flex items-center gap-1.5">
+                      {['#6366f1', '#ec4899', '#f43f5e', '#f59e0b', '#10b981', '#06b6d4', '#ffffff', '#0f172a'].map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => updateNodeStyle(selectedNode.id, { vectorColor: c })}
+                          style={{ backgroundColor: c }}
+                          className={`w-4 h-4 rounded-full border ${style.vectorColor === c ? 'ring-2 ring-indigo-400 scale-110' : 'border-white/20'} transition-transform`}
+                          title={c}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ===== OVERLAY GRADIENT & OPACITY CONTROLS ===== */}
+                <div className={`pt-2 border-t flex flex-col gap-2.5 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+                  {/* Layer Opacity */}
+                  <div>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <label className="text-[10px] text-slate-500">Elemen / Objek Opacity</label>
+                      <span className="text-[10px] font-mono text-indigo-400">{Math.round((style.opacity ?? 1) * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={style.opacity ?? 1}
+                      onChange={(e) => updateNodeStyle(selectedNode.id, { opacity: Number(e.target.value) })}
+                      className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                  </div>
+
+                  {/* Gradient / Solid Overlay Header & Toggle */}
+                  <div className={`pt-2 border-t flex flex-col gap-2 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-sky-400" />
+                        Overlay {style.overlayGradient ? 'Gradient' : 'Solid'}
+                      </span>
+                      {/* Mode Switch Toggle */}
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[9px] font-medium transition ${
+                          style.overlayGradient ? 'text-indigo-400 font-semibold' : 'text-slate-400'
+                        }`}>
+                          {style.overlayGradient ? 'Gradient' : 'Solid'}
+                        </span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={!!style.overlayGradient}
+                          onClick={() => updateNodeStyle(selectedNode.id, { 
+                            overlayGradient: !style.overlayGradient,
+                            ...(!style.overlayGradient && (style.overlayStartOpacity === undefined && style.overlayEndOpacity === undefined) ? {
+                              overlayStartOpacity: 0,
+                              overlayEndOpacity: style.overlayOpacity || 0.8
+                            } : {})
+                          })}
+                          className={`relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            style.overlayGradient ? 'bg-indigo-600' : 'bg-slate-600'
+                          }`}
+                          title={style.overlayGradient ? 'Mode Gradient aktif (Klik untuk beralih ke Solid)' : 'Mode Solid aktif (Klik untuk beralih ke Gradient)'}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                              style.overlayGradient ? 'translate-x-3' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* SOLID OVERLAY CONTROLS */}
+                    {!style.overlayGradient ? (
+                      <div className="flex flex-col gap-2">
+                        <div>
+                          <label className="text-[10px] text-slate-500 block mb-0.5">Warna Overlay Tint</label>
+                          <div className={`flex items-center gap-1.5 border rounded p-1 ${
+                            isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-300'
+                          }`}>
+                            <input
+                              type="color"
+                              value={style.overlayColor || '#000000'}
+                              onChange={(e) => updateNodeStyle(selectedNode.id, { overlayColor: e.target.value })}
+                              className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
+                            />
+                            <input
+                              type="text"
+                              value={style.overlayColor || '#000000'}
+                              onChange={(e) => updateNodeStyle(selectedNode.id, { overlayColor: e.target.value })}
+                              className="w-full bg-transparent font-mono outline-none text-xs"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Solid Opacity Slider */}
+                        <div>
+                          <div className="flex items-center justify-between mb-0.5">
+                            <label className="text-[10px] text-slate-500">Overlay Opacity (Solid)</label>
+                            <span className="text-[10px] font-mono text-indigo-400">{Math.round((style.overlayOpacity ?? 0) * 100)}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.05"
+                            value={style.overlayOpacity ?? 0}
+                            onChange={(e) => updateNodeStyle(selectedNode.id, { overlayOpacity: Number(e.target.value) })}
+                            className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                          />
+                        </div>
+
+                        {/* Quick Presets */}
+                        <div className="grid grid-cols-4 gap-1">
+                          {[
+                            { label: '0% Clear', val: 0 },
+                            { label: '30% Light', val: 0.3 },
+                            { label: '60% Med', val: 0.6 },
+                            { label: '90% Dark', val: 0.9 },
+                          ].map((preset) => (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() => updateNodeStyle(selectedNode.id, { overlayOpacity: preset.val })}
+                              className={`text-[9px] py-1 rounded border text-center transition ${
+                                Math.abs((style.overlayOpacity ?? 0) - preset.val) < 0.01
+                                  ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500 font-semibold'
+                                  : isDark
+                                    ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-indigo-500'
+                                    : 'bg-slate-100 text-slate-700 border-slate-200'
+                              }`}
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      /* GRADIENT OVERLAY CONTROLS */
+                      <div className="flex flex-col gap-2">
+                        {/* Quick Fade Presets */}
+                        <div className="grid grid-cols-3 gap-1">
+                          <button
+                            type="button"
+                            onClick={() => updateNodeStyle(selectedNode.id, { overlayAngle: 90, overlayStartOpacity: 0, overlayEndOpacity: 0.95, overlayStartPos: 0, overlayEndPos: 100 })}
+                            className={`text-[9px] py-1 rounded border text-center transition ${
+                              isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-indigo-500' : 'bg-slate-100 text-slate-700 border-slate-200'
+                            }`}
+                          >
+                            Fade Kanan →
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateNodeStyle(selectedNode.id, { overlayAngle: 270, overlayStartOpacity: 0, overlayEndOpacity: 0.95, overlayStartPos: 0, overlayEndPos: 100 })}
+                            className={`text-[9px] py-1 rounded border text-center transition ${
+                              isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-indigo-500' : 'bg-slate-100 text-slate-700 border-slate-200'
+                            }`}
+                          >
+                            ← Fade Kiri
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateNodeStyle(selectedNode.id, { overlayAngle: 180, overlayStartOpacity: 0, overlayEndOpacity: 0.95, overlayStartPos: 0, overlayEndPos: 100 })}
+                            className={`text-[9px] py-1 rounded border text-center transition ${
+                              isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-indigo-500' : 'bg-slate-100 text-slate-700 border-slate-200'
+                            }`}
+                          >
+                            Fade Bawah ↓
+                          </button>
+                        </div>
+
+                        {/* Warna Tint, Angle & Angle Dial Wheel */}
+                        <div className="grid grid-cols-12 gap-2 items-center">
+                          <div className="col-span-7 flex flex-col gap-2">
+                            <div>
+                              <label className="text-[10px] text-slate-500 block mb-0.5">Warna Overlay Tint</label>
+                              <div className={`flex items-center gap-1.5 border rounded p-1 ${
+                                isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-300'
+                              }`}>
+                                <input
+                                  type="color"
+                                  value={style.overlayColor || '#000000'}
+                                  onChange={(e) => updateNodeStyle(selectedNode.id, { overlayColor: e.target.value })}
+                                  className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
+                                />
+                                <input
+                                  type="text"
+                                  value={style.overlayColor || '#000000'}
+                                  onChange={(e) => updateNodeStyle(selectedNode.id, { overlayColor: e.target.value })}
+                                  className="w-full bg-transparent font-mono outline-none text-xs"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] text-slate-500 block mb-0.5">Arah Overlay Angle (°)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                max="360"
+                                value={style.overlayAngle ?? 90}
+                                onChange={(e) => updateNodeStyle(selectedNode.id, { overlayAngle: Number(e.target.value) })}
+                                className={inputClass}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="col-span-5 flex justify-center pt-2">
+                            <AnglePickerWheel
+                              angle={style.overlayAngle ?? 90}
+                              onChange={(newAngle) => updateNodeStyle(selectedNode.id, { overlayAngle: newAngle })}
+                              label="Sudut Rotasi"
+                              isDark={isDark}
+                              size={64}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Visual Gradient Alpha Bar */}
+                        <div className="flex flex-col gap-1 mt-1">
+                          <label className="text-[10px] text-slate-500">Visual Gradient Alpha Bar</label>
+                          <div
+                            className="w-full h-4 rounded border border-white/20 shadow-inner relative overflow-hidden"
+                            style={{
+                              background: `linear-gradient(to right, transparent, rgba(255,255,255,0.2)), linear-gradient(${style.overlayAngle ?? 90}deg, ${style.overlayColor || '#000000'}${Math.round((style.overlayStartOpacity ?? 0) * 255).toString(16).padStart(2, '0')} ${style.overlayStartPos ?? 0}%, ${style.overlayColor || '#000000'}${Math.round((style.overlayEndOpacity ?? 0.8) * 255).toString(16).padStart(2, '0')} ${style.overlayEndPos ?? 100}%)`,
+                            }}
+                          />
+                        </div>
+
+                        {/* Start Stop Opacity & Pos */}
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          <div>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <label className="text-[10px] text-slate-500">Opacity Awal</label>
+                              <span className="text-[10px] font-mono text-indigo-400">{Math.round((style.overlayStartOpacity ?? 0) * 100)}%</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.05"
+                              value={style.overlayStartOpacity ?? 0}
+                              onChange={(e) => updateNodeStyle(selectedNode.id, { overlayStartOpacity: Number(e.target.value) })}
+                              className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <label className="text-[10px] text-slate-500">Posisi Start Offset</label>
+                              <span className="text-[10px] font-mono text-indigo-400">{style.overlayStartPos ?? 0}%</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              step="1"
+                              value={style.overlayStartPos ?? 0}
+                              onChange={(e) => updateNodeStyle(selectedNode.id, { overlayStartPos: Number(e.target.value) })}
+                              className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            />
+                          </div>
+                        </div>
+
+                        {/* End Stop Opacity & Pos */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <label className="text-[10px] text-slate-500">Opacity Akhir</label>
+                              <span className="text-[10px] font-mono text-indigo-400">{Math.round((style.overlayEndOpacity ?? 0.8) * 100)}%</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.05"
+                              value={style.overlayEndOpacity ?? 0.8}
+                              onChange={(e) => updateNodeStyle(selectedNode.id, { overlayEndOpacity: Number(e.target.value) })}
+                              className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <label className="text-[10px] text-slate-500">Posisi End Offset</label>
+                              <span className="text-[10px] font-mono text-indigo-400">{style.overlayEndPos ?? 100}%</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              step="1"
+                              value={style.overlayEndPos ?? 100}
+                              onChange={(e) => updateNodeStyle(selectedNode.id, { overlayEndPos: Number(e.target.value) })}
+                              className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
         {/* 3. LAYOUT & FLEXBOX SECTION */}
         <section className={`flex flex-col gap-2 border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
           {renderSectionHeader('layout', 'Flexbox Container Layout', Layout, 'text-indigo-500')}
@@ -1613,32 +2055,35 @@ export const PropertyInspector: React.FC = () => {
           )}
         </section>
 
-        {/* 4. STYLING (FILL & STROKE & SHADOW) */}
-        <section className={`flex flex-col gap-2 border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
-          {renderSectionHeader('fill', 'Fill & Stroke', Palette, 'text-pink-500')}
+        {/* 4. STYLING (FILL & STROKE & BORDER RADIUS) - Hidden for vector objects */}
+        {selectedNode.type !== 'text' && !(selectedNode.type === 'image' && (style.imageType === 'vector' || Boolean(style.svgContent))) && (
+          <section className={`flex flex-col gap-2 border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+            {renderSectionHeader('fill', 'Fill & Stroke', Palette, 'text-pink-500')}
 
           {expandedSections['fill'] && (
             <div className="flex flex-col gap-2 pt-1">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] text-slate-500 block mb-0.5">Fill Color</label>
-                  <div className={`flex items-center gap-1.5 border rounded p-1 ${
-                    isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-300'
-                  }`}>
-                    <input
-                      type="color"
-                      value={style.fill === 'transparent' ? '#ffffff' : style.fill}
-                      onChange={(e) => updateNodeStyle(selectedNode.id, { fill: e.target.value })}
-                      className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
-                    />
-                    <input
-                      type="text"
-                      value={style.fill}
-                      onChange={(e) => updateNodeStyle(selectedNode.id, { fill: e.target.value })}
-                      className="w-full bg-transparent font-mono outline-none text-xs"
-                    />
+              <div className={selectedNode.type === 'image' ? 'grid grid-cols-1 gap-2' : 'grid grid-cols-2 gap-2'}>
+                {selectedNode.type !== 'image' && (
+                  <div>
+                    <label className="text-[10px] text-slate-500 block mb-0.5">Fill Color</label>
+                    <div className={`flex items-center gap-1.5 border rounded p-1 ${
+                      isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-300'
+                    }`}>
+                      <input
+                        type="color"
+                        value={style.fill === 'transparent' ? '#ffffff' : style.fill}
+                        onChange={(e) => updateNodeStyle(selectedNode.id, { fill: e.target.value })}
+                        className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
+                      />
+                      <input
+                        type="text"
+                        value={style.fill}
+                        onChange={(e) => updateNodeStyle(selectedNode.id, { fill: e.target.value })}
+                        className="w-full bg-transparent font-mono outline-none text-xs"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div>
                   <label className="text-[10px] text-slate-500 block mb-0.5">Stroke Color</label>
@@ -1744,6 +2189,7 @@ export const PropertyInspector: React.FC = () => {
             </div>
           )}
         </section>
+        )}
 
         {/* 5. TYPOGRAPHY (for Text Node) */}
         {selectedNode.type === 'text' && (

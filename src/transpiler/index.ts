@@ -86,6 +86,13 @@ export function generateSVGExport(
       return `<path d="${d}" fill="${node.style.fill}" stroke="${node.style.stroke}" stroke-width="${node.style.strokeWidth}" opacity="${node.style.opacity}" />`;
     }
 
+    if (node.type === 'image') {
+      if (node.style.imageType === 'vector' && node.style.svgContent) {
+        return `<g transform="translate(${rx}, ${ry})" opacity="${node.style.opacity}">${node.style.svgContent}</g>`;
+      }
+      return `<image href="${node.style.imageUrl || ''}" x="${rx}" y="${ry}" width="${node.width}" height="${node.height}" preserveAspectRatio="xMidYMid slice" opacity="${node.style.opacity}" />`;
+    }
+
     return '';
   }
 
