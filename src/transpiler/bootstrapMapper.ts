@@ -147,6 +147,10 @@ export function styleToBootstrapClasses(style: NodeStyle, node: CanvasNode): str
 
     if (style.textAlign === 'center') classes.push('text-center');
     else if (style.textAlign === 'right') classes.push('text-end');
+
+    if (style.textTransform === 'uppercase') classes.push('text-uppercase');
+    else if (style.textTransform === 'capitalize') classes.push('text-capitalize');
+    else if (style.textTransform === 'lowercase') classes.push('text-lowercase');
   }
 
   return classes;

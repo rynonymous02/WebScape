@@ -3044,6 +3044,77 @@ export const PropertyInspector: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Capitalization / Text Transform */}
+                <div>
+                  <label className="text-[10px] text-slate-500 block mb-0.5">Capitalization / Text Transform</label>
+                  <div className={`grid grid-cols-4 gap-1 p-0.5 rounded border ${
+                    isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'
+                  }`}>
+                    <button
+                      onClick={() => updateNodeStyle(selectedNode.id, { textTransform: 'none' })}
+                      title="Normal Case (none)"
+                      className={`py-1 rounded text-[11px] font-medium flex items-center justify-center transition-all ${
+                        (!style.textTransform || style.textTransform === 'none')
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <span>Aa</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const newText = (selectedNode.text || '').toUpperCase();
+                        updateNode(selectedNode.id, { text: newText });
+                        updateNodeStyle(selectedNode.id, { textTransform: 'uppercase' });
+                      }}
+                      title="UPPERCASE (TEXT)"
+                      className={`py-1 rounded text-[11px] font-bold uppercase flex items-center justify-center transition-all ${
+                        style.textTransform === 'uppercase'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <span>TEXT</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const toTitleCase = (str: string) => {
+                          return str.split(/(\s+)/).map(part => {
+                            if (!part.trim()) return part;
+                            return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+                          }).join('');
+                        };
+                        const newText = toTitleCase(selectedNode.text || '');
+                        updateNode(selectedNode.id, { text: newText });
+                        updateNodeStyle(selectedNode.id, { textTransform: 'capitalize' });
+                      }}
+                      title="Title Case (Text)"
+                      className={`py-1 rounded text-[11px] font-semibold capitalize flex items-center justify-center transition-all ${
+                        style.textTransform === 'capitalize'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <span>Text</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const newText = (selectedNode.text || '').toLowerCase();
+                        updateNode(selectedNode.id, { text: newText });
+                        updateNodeStyle(selectedNode.id, { textTransform: 'lowercase' });
+                      }}
+                      title="lowercase (text)"
+                      className={`py-1 rounded text-[11px] font-medium lowercase flex items-center justify-center transition-all ${
+                        style.textTransform === 'lowercase'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <span>text</span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* SPACING HORIZONTAL & VERTIKAL */}
                 <div className={`pt-2 border-t flex flex-col gap-2 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
                   <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">

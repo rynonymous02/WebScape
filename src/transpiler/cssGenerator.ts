@@ -241,6 +241,9 @@ export const generateRawCSS = (
         rules.push(`  letter-spacing: ${s.letterSpacing}px;`);
       }
       rules.push(`  text-align: ${s.textAlign || 'left'};`);
+      if (s.textTransform && s.textTransform !== 'none') {
+        rules.push(`  text-transform: ${s.textTransform};`);
+      }
     }
 
     // Image & Vector styling

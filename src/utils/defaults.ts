@@ -52,6 +52,7 @@ export const createDefaultStyle = (override: Partial<NodeStyle> = {}): NodeStyle
   fontWeight: 400,
   fontStyle: 'normal',
   textAlign: 'left',
+  textTransform: 'none',
   lineHeight: 1.5,
   letterSpacing: 0,
   textColor: '#1e293b',

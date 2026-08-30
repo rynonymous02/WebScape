@@ -113,6 +113,7 @@ export interface NodeStyle {
   fontWeight: number | string;
   fontStyle: 'normal' | 'italic';
   textAlign: 'left' | 'center' | 'right' | 'justify';
+  textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
   lineHeight: number;
   letterSpacing?: number;
   textColor: string;

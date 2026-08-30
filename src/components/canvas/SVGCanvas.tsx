@@ -115,6 +115,7 @@ export const SVGCanvas: React.FC = () => {
   const [selectionMode, setSelectionMode] = useState<'transform' | 'radius'>('transform');
   const [hoveredRadiusCorner, setHoveredRadiusCorner] = useState<string | null>(null);
   const [liveRadiusInfo, setLiveRadiusInfo] = useState<{ text: string; clientX: number; clientY: number } | null>(null);
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
 
   const selectedNode = selectedIds.length === 1 ? project.nodes[selectedIds[0]] : null;
 
@@ -719,25 +720,71 @@ export const SVGCanvas: React.FC = () => {
       if (style.fontFamily && style.fontSource !== 'offline') {
         loadWebFont(style.fontFamily);
       }
+
+      const isEditingThis = editingTextId === node.id;
       const Tag = style.fontSize >= 20 ? 'h2' : 'p';
+      const textStyle: React.CSSProperties = {
+        ...commonStyle,
+        fontFamily: style.fontFamily,
+        fontSize: `${style.fontSize}px`,
+        fontWeight: style.fontWeight,
+        color: style.textColor,
+        lineHeight: style.lineHeight,
+        letterSpacing: style.letterSpacing !== undefined ? `${style.letterSpacing}px` : undefined,
+        textAlign: style.textAlign,
+        textTransform: style.textTransform || 'none',
+        margin: 0,
+      };
+
+      if (isEditingThis) {
+        return (
+          <textarea
+            key={node.id}
+            id={node.id}
+            value={node.text || ''}
+            autoFocus
+            rows={Math.max(1, (node.text || '').split('\n').length)}
+            onChange={(e) => updateNode(node.id, { text: e.target.value })}
+            onBlur={() => setEditingTextId(null)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === 'Escape') {
+                setEditingTextId(null);
+              } else if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                setEditingTextId(null);
+              }
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            style={{
+              ...textStyle,
+              background: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+              outline: '2px solid #6366f1',
+              outlineOffset: '2px',
+              borderRadius: 4,
+              padding: '2px 4px',
+              cursor: 'text',
+              resize: 'none',
+              overflow: 'hidden',
+              boxSizing: 'border-box',
+              minWidth: '60px',
+            }}
+          />
+        );
+      }
+
       return (
         <Tag
           key={node.id}
           id={node.id}
           onPointerDown={handleNodePointerDown}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            setEditingTextId(node.id);
+          }}
           onPointerEnter={() => setHoveredId(node.id)}
           onPointerLeave={() => setHoveredId(null)}
-          style={{
-            ...commonStyle,
-            fontFamily: style.fontFamily,
-            fontSize: `${style.fontSize}px`,
-            fontWeight: style.fontWeight,
-            color: style.textColor,
-            lineHeight: style.lineHeight,
-            letterSpacing: style.letterSpacing !== undefined ? `${style.letterSpacing}px` : undefined,
-            textAlign: style.textAlign,
-            margin: 0,
-          }}
+          style={textStyle}
         >
           {node.text}
         </Tag>

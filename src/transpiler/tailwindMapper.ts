@@ -207,6 +207,10 @@ export const generateTailwind = (
       if (s.textAlign === 'center') classes.push('text-center');
       else if (s.textAlign === 'right') classes.push('text-right');
       else classes.push('text-left');
+
+      if (s.textTransform === 'uppercase') classes.push('uppercase');
+      else if (s.textTransform === 'capitalize') classes.push('capitalize');
+      else if (s.textTransform === 'lowercase') classes.push('lowercase');
     }
 
     // Image & Vector
