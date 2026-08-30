@@ -4,9 +4,10 @@ import {
   Sliders, Layout, Palette, Type as TypeIcon, Box, AlignLeft, AlignCenter, AlignRight,
   ArrowRight, ArrowDown, ArrowUpToLine, ArrowDownToLine, ArrowUp, Move, Image as ImageIcon,
   Upload, Layers, Sparkles, Monitor, Tablet, Smartphone, ChevronDown, ChevronRight,
-  ChevronLeft, PanelRightClose, Wand2, Zap, Shield, RefreshCw
+  ChevronLeft, PanelRightClose, Wand2, Zap, Shield, RefreshCw, Globe, HardDrive
 } from 'lucide-react';
 import type { PositionMode, FrameRole } from '../../types/canvas';
+import { POPULAR_FONTS, loadWebFont, extractCleanFontName } from '../../utils/fontLoader';
 
 const PRESET_BACKGROUND_IMAGES = [
   { label: 'Dark Violet Gradient', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80' },
@@ -2853,6 +2854,109 @@ export const PropertyInspector: React.FC = () => {
 
             {expandedSections['typography'] && (
               <div className="flex flex-col gap-2 pt-1">
+                {/* Font Source & Family Selection */}
+                <div className={`p-2 rounded border flex flex-col gap-2 ${
+                  isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                      Font Family & Source
+                    </label>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono flex items-center gap-1 ${
+                      style.fontSource === 'offline'
+                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                        : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    }`}>
+                      {style.fontSource === 'offline' ? <HardDrive className="w-2.5 h-2.5" /> : <Globe className="w-2.5 h-2.5" />}
+                      {style.fontSource === 'offline' ? 'Offline Font' : 'Web Font CDN'}
+                    </span>
+                  </div>
+
+                  {/* Mode Source Selector (By Web vs Offline) */}
+                  <div className="grid grid-cols-2 gap-1 bg-slate-950 p-0.5 rounded border border-slate-800">
+                    <button
+                      onClick={() => {
+                        updateNodeStyle(selectedNode.id, { fontSource: 'web' });
+                        loadWebFont(style.fontFamily || 'Inter, sans-serif');
+                      }}
+                      className={`text-[10px] py-1 px-2 rounded flex items-center justify-center gap-1.5 transition-all ${
+                        (style.fontSource || 'web') === 'web'
+                          ? 'bg-indigo-600 text-white font-medium shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <Globe className="w-3 h-3" />
+                      <span>By Web (CDN)</span>
+                    </button>
+                    <button
+                      onClick={() => updateNodeStyle(selectedNode.id, { fontSource: 'offline' })}
+                      className={`text-[10px] py-1 px-2 rounded flex items-center justify-center gap-1.5 transition-all ${
+                        style.fontSource === 'offline'
+                          ? 'bg-amber-600 text-white font-medium shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      <HardDrive className="w-3 h-3" />
+                      <span>Offline (Package)</span>
+                    </button>
+                  </div>
+
+                  {/* Font Preset Dropdown */}
+                  <div>
+                    <label className="text-[10px] text-slate-500 block mb-0.5">Preset Font Family</label>
+                    <select
+                      value={extractCleanFontName(style.fontFamily || 'Inter')}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const matched = POPULAR_FONTS.find(f => f.cleanName === val);
+                        const newFamily = matched ? matched.family : `'${val}', sans-serif`;
+                        updateNodeStyle(selectedNode.id, { fontFamily: newFamily });
+                        loadWebFont(newFamily);
+                      }}
+                      className={selectClass}
+                    >
+                      <optgroup label="Popular Modern Sans-Serif">
+                        <option value="Inter">Inter</option>
+                        <option value="Poppins">Poppins</option>
+                        <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
+                        <option value="Montserrat">Montserrat</option>
+                        <option value="Outfit">Outfit</option>
+                        <option value="Space Grotesk">Space Grotesk</option>
+                        <option value="Roboto">Roboto</option>
+                        <option value="Syne">Syne</option>
+                      </optgroup>
+                      <optgroup label="Display & Bold Headline">
+                        <option value="Bebas Neue">Bebas Neue</option>
+                      </optgroup>
+                      <optgroup label="Serif & Editorial">
+                        <option value="Playfair Display">Playfair Display</option>
+                        <option value="Cinzel">Cinzel</option>
+                      </optgroup>
+                      <optgroup label="Handwriting & Signature">
+                        <option value="Photograph Signature">Photograph Signature</option>
+                        <option value="Caveat">Caveat</option>
+                        <option value="Pacifico">Pacifico</option>
+                      </optgroup>
+                    </select>
+                  </div>
+
+                  {/* Custom Font Family Input */}
+                  <div>
+                    <label className="text-[10px] text-slate-500 block mb-0.5">Font Family Name (CSS format)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 'Poppins', sans-serif"
+                      value={style.fontFamily || 'Inter, sans-serif'}
+                      onChange={(e) => {
+                        const newFam = e.target.value;
+                        updateNodeStyle(selectedNode.id, { fontFamily: newFam });
+                        loadWebFont(newFam);
+                      }}
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <label className="text-[10px] text-slate-500 block mb-0.5">Text String</label>
                   <textarea

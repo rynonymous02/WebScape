@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
+import { loadWebFont } from '../../utils/fontLoader';
 
 const hexToRgba = (hex: string, alpha: number) => {
   let clean = (hex || '#000000').replace('#', '');
@@ -105,6 +106,8 @@ export const SVGCanvas: React.FC = () => {
     nodeStartGeom?: { x: number; y: number; width: number; height: number; rotation: number };
     startStyleOffsets?: { left: number; top: number };
     drawStartPos?: { x: number; y: number };
+    parentOffsetX?: number;
+    parentOffsetY?: number;
     drawingNodeId?: string;
   }>({ mode: 'none', startX: 0, startY: 0 });
 
@@ -138,11 +141,14 @@ export const SVGCanvas: React.FC = () => {
     const handleWindowPointerMove = (e: PointerEvent) => {
       if (dragState.mode === 'draw' && dragState.drawingNodeId && dragState.drawStartPos) {
         const pos = screenToCanvasCoords(e.clientX, e.clientY);
-        const width = Math.max(20, Math.abs(pos.x - dragState.drawStartPos.x));
-        const height = Math.max(20, Math.abs(pos.y - dragState.drawStartPos.y));
-        const x = Math.min(pos.x, dragState.drawStartPos.x);
-        const y = Math.min(pos.y, dragState.drawStartPos.y);
+        const curRelX = pos.x - (dragState.parentOffsetX || 0);
+        const curRelY = pos.y - (dragState.parentOffsetY || 0);
+        const width = Math.max(20, Math.abs(curRelX - dragState.drawStartPos.x));
+        const height = Math.max(20, Math.abs(curRelY - dragState.drawStartPos.y));
+        const x = Math.min(curRelX, dragState.drawStartPos.x);
+        const y = Math.min(curRelY, dragState.drawStartPos.y);
         updateNodeGeometry(dragState.drawingNodeId, x, y, width, height);
+        updateNodeStyle(dragState.drawingNodeId, { left: x, top: y });
         return;
       }
 
@@ -314,6 +320,7 @@ export const SVGCanvas: React.FC = () => {
           const defaultW = node.type === 'ellipse' ? 100 : (node.type === 'image' ? 240 : 120);
           const defaultH = node.type === 'ellipse' ? 100 : (node.type === 'image' ? 180 : 80);
           updateNodeGeometry(node.id, node.x, node.y, defaultW, defaultH);
+          updateNodeStyle(node.id, { left: node.x, top: node.y });
         }
       }
       setIsPanning(false);
@@ -430,12 +437,43 @@ export const SVGCanvas: React.FC = () => {
 
     if (['frame', 'rectangle', 'ellipse', 'path', 'text'].includes(activeTool)) {
       pushHistorySnapshot();
-      const nodeId = addNode(activeTool as any, pos.x, pos.y, 20, 20);
+
+      const storeState = useProjectStore.getState();
+      let targetParentId: string | null = null;
+      if (storeState.selectedIds.length > 0) {
+        const selNode = storeState.project.nodes[storeState.selectedIds[0]];
+        if (selNode) {
+          if (selNode.type === 'frame') {
+            targetParentId = selNode.id;
+          } else if (selNode.parentId && storeState.project.nodes[selNode.parentId]) {
+            targetParentId = selNode.parentId;
+          }
+        }
+      }
+
+      let parentOffsetX = 0;
+      let parentOffsetY = 0;
+      if (targetParentId && containerRef.current) {
+        const parentEl = document.getElementById(targetParentId);
+        if (parentEl) {
+          const containerRect = containerRef.current.getBoundingClientRect();
+          const parentRect = parentEl.getBoundingClientRect();
+          parentOffsetX = (parentRect.left - containerRect.left - canvasTransform.panX) / canvasTransform.zoom;
+          parentOffsetY = (parentRect.top - containerRect.top - canvasTransform.panY) / canvasTransform.zoom;
+        }
+      }
+
+      const relX = Math.round(pos.x - parentOffsetX);
+      const relY = Math.round(pos.y - parentOffsetY);
+
+      const nodeId = addNode(activeTool as any, relX, relY, 20, 20, targetParentId);
       setDragState({
         mode: 'draw',
-        startX: pos.x,
-        startY: pos.y,
-        drawStartPos: pos,
+        startX: relX,
+        startY: relY,
+        parentOffsetX: Math.round(parentOffsetX),
+        parentOffsetY: Math.round(parentOffsetY),
+        drawStartPos: { x: relX, y: relY },
         drawingNodeId: nodeId,
       });
       return;
@@ -678,6 +716,9 @@ export const SVGCanvas: React.FC = () => {
     }
 
     if (node.type === 'text') {
+      if (style.fontFamily && style.fontSource !== 'offline') {
+        loadWebFont(style.fontFamily);
+      }
       const Tag = style.fontSize >= 20 ? 'h2' : 'p';
       return (
         <Tag

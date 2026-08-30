@@ -47,6 +47,7 @@ export const createDefaultStyle = (override: Partial<NodeStyle> = {}): NodeStyle
   backgroundRepeat: 'no-repeat',
 
   fontFamily: 'Inter, sans-serif',
+  fontSource: 'web',
   fontSize: 16,
   fontWeight: 400,
   fontStyle: 'normal',
@@ -112,7 +113,9 @@ export const createNewNode = (
     }
   } else if (type === 'rectangle') {
     style = createDefaultStyle({
-      position: 'relative',
+      position: 'absolute',
+      left: x,
+      top: y,
       fill: '#3b82f6',
       stroke: '#1d4ed8',
       strokeWidth: 0,
@@ -130,7 +133,9 @@ export const createNewNode = (
     if (!customName) name = 'Text Heading';
   } else if (type === 'ellipse') {
     style = createDefaultStyle({
-      position: 'relative',
+      position: 'absolute',
+      left: x,
+      top: y,
       fill: '#ec4899',
       borderRadius: 9999,
     });

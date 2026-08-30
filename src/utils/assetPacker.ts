@@ -1,5 +1,7 @@
 import JSZip from 'jszip';
 import type { CanvasNode, TranspilerOutput } from '../types/canvas';
+import { extractFontsFromNodes, getOfflineFontAsset } from './offlineFonts';
+import { buildGoogleFontsUrl } from './fontLoader';
 
 export interface ExtractedImage {
   nodeId: string;
@@ -90,18 +92,35 @@ export interface ZipExportOptions {
   activeTab: 'flutter_widget' | 'flutter_full' | 'tailwind_jsx' | 'tailwind_html' | 'bootstrap_jsx' | 'bootstrap_html' | 'css_html' | 'css_raw';
   cleanTranspilerOutput: TranspilerOutput;
   extractedImages: ExtractedImage[];
+  nodes?: Record<string, CanvasNode>;
 }
 
 /**
- * Generates a ready-to-use .ZIP project archive containing clean source files and separated `images/` directory.
+ * Generates a ready-to-use .ZIP project archive containing clean source files, `images/` directory, and offline `fonts/` directory.
  */
 export async function createZipProjectPackage(options: ZipExportOptions): Promise<Blob> {
-  const { projectName, activeTab, cleanTranspilerOutput, extractedImages } = options;
+  const { projectName, activeTab, cleanTranspilerOutput, extractedImages, nodes } = options;
   const zip = new JSZip();
 
   const safeProjName = projectName.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'webscape_project';
 
-  // 1. Pack all extracted images into images/ folder
+  // 1. Extract and pack fonts (both web and offline)
+  const { webFonts, offlineFonts } = extractFontsFromNodes(nodes || {});
+  const googleFontsUrl = buildGoogleFontsUrl(webFonts.length > 0 ? webFonts : ['Inter']);
+  const googleFontLinkTags = googleFontsUrl ? `  <link rel="preconnect" href="https://fonts.googleapis.com">\n  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n  <link href="${googleFontsUrl}" rel="stylesheet">` : '';
+
+  // Pack offline fonts into fonts/ directory
+  if (offlineFonts.length > 0) {
+    const fontsFolder = zip.folder('fonts');
+    if (fontsFolder) {
+      offlineFonts.forEach((ff) => {
+        const fontAsset = getOfflineFontAsset(ff);
+        fontsFolder.file(fontAsset.filename, fontAsset.base64Data, { base64: true });
+      });
+    }
+  }
+
+  // 2. Pack all extracted images into images/ folder
   const imagesFolder = zip.folder('images');
   if (imagesFolder) {
     extractedImages.forEach((img) => {
@@ -109,7 +128,7 @@ export async function createZipProjectPackage(options: ZipExportOptions): Promis
     });
   }
 
-  // 2. Package according to target framework
+  // 3. Package according to target framework
   if (activeTab === 'css_html' || activeTab === 'css_raw') {
     // Clean Separate HTML + CSS Architecture
     const htmlWithLinkedCss = `<!DOCTYPE html>
@@ -119,10 +138,7 @@ export async function createZipProjectPackage(options: ZipExportOptions): Promis
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${projectName} - WebScape Export</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-</head>
+${googleFontLinkTags ? googleFontLinkTags + '\n' : ''}</head>
 <body>
 ${cleanTranspilerOutput.htmlCss.html}
 </body>
@@ -130,10 +146,10 @@ ${cleanTranspilerOutput.htmlCss.html}
 
     zip.file('index.html', htmlWithLinkedCss);
     zip.file('style.css', cleanTranspilerOutput.htmlCss.css);
-    zip.file('README.md', `# ${projectName}\n\nExported from WebScape Vector Canvas.\n\n## Structure\n- \`index.html\` - Webpage layout\n- \`style.css\` - Extracted CSS stylesheet\n- \`images/\` - Extracted image assets\n\nDouble click \`index.html\` to open in any web browser.`);
+    zip.file('README.md', `# ${projectName}\n\nExported from WebScape Vector Canvas.\n\n## Structure\n- \`index.html\` - Webpage layout\n- \`style.css\` - Extracted CSS stylesheet\n- \`images/\` - Extracted image assets\n${offlineFonts.length > 0 ? '- `fonts/` - Extracted offline font assets\n' : ''}\nDouble click \`index.html\` to open in any web browser.`);
   } else if (activeTab === 'tailwind_html') {
     zip.file('index.html', cleanTranspilerOutput.tailwind.html);
-    zip.file('README.md', `# ${projectName} (Tailwind CSS)\n\nExported from WebScape.\n\n## Structure\n- \`index.html\` - Complete webpage with Tailwind CSS CDN & local image paths\n- \`images/\` - Extracted image assets\n\nOpen \`index.html\` in any web browser.`);
+    zip.file('README.md', `# ${projectName} (Tailwind CSS)\n\nExported from WebScape.\n\n## Structure\n- \`index.html\` - Complete webpage with Tailwind CSS CDN & local image paths\n- \`images/\` - Extracted image assets\n${offlineFonts.length > 0 ? '- `fonts/` - Extracted offline font assets\n' : ''}\nOpen \`index.html\` in any web browser.`);
   } else if (activeTab === 'tailwind_jsx') {
     const srcFolder = zip.folder('src');
     if (srcFolder) {
@@ -149,6 +165,15 @@ ${cleanTranspilerOutput.htmlCss.html}
         extractedImages.forEach((img) => {
           publicImages.file(img.filename, img.base64Content, { base64: true });
         });
+      }
+      if (offlineFonts.length > 0) {
+        const publicFonts = publicFolder.folder('fonts');
+        if (publicFonts) {
+          offlineFonts.forEach((ff) => {
+            const fontAsset = getOfflineFontAsset(ff);
+            publicFonts.file(fontAsset.filename, fontAsset.base64Data, { base64: true });
+          });
+        }
       }
     }
 
@@ -177,17 +202,17 @@ ${cleanTranspilerOutput.htmlCss.html}
       }
     }, null, 2));
 
-    zip.file('index.html', `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>${projectName}</title>\n</head>\n<body>\n  <div id="root"></div>\n  <script type="module" src="/src/main.tsx"></script>\n</body>\n</html>`);
+    zip.file('index.html', `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>${projectName}</title>\n${googleFontLinkTags ? googleFontLinkTags + '\n' : ''}</head>\n<body>\n  <div id="root"></div>\n  <script type="module" src="/src/main.tsx"></script>\n</body>\n</html>`);
     zip.file('README.md', `# ${projectName} - React + Tailwind CSS\n\n## Quick Start\n\`\`\`bash\nnpm install\nnpm run dev\n\`\`\``);
   } else if (activeTab === 'bootstrap_html') {
     zip.file('index.html', cleanTranspilerOutput.bootstrap.html);
-    zip.file('README.md', `# ${projectName} (Bootstrap 5)\n\n## Structure\n- \`index.html\` - Complete layout with Bootstrap 5 CDN\n- \`images/\` - Extracted image assets`);
+    zip.file('README.md', `# ${projectName} (Bootstrap 5)\n\n## Structure\n- \`index.html\` - Complete layout with Bootstrap 5 CDN\n- \`images/\` - Extracted image assets\n${offlineFonts.length > 0 ? '- `fonts/` - Extracted offline font assets\n' : ''}`);
   } else if (activeTab === 'bootstrap_jsx') {
     const srcFolder = zip.folder('src');
     if (srcFolder) {
       srcFolder.file('App.tsx', cleanTranspilerOutput.bootstrap.jsx);
     }
-    zip.file('README.md', `# ${projectName} (React Bootstrap)\n\nIncludes extracted images in \`images/\`.`);
+    zip.file('README.md', `# ${projectName} (React Bootstrap)\n\nIncludes extracted images in \`images/\`${offlineFonts.length > 0 ? ' and fonts in `fonts/`' : ''}.`);
   } else if (activeTab === 'flutter_widget' || activeTab === 'flutter_full') {
     const libFolder = zip.folder('lib');
     if (libFolder) {
@@ -202,6 +227,15 @@ ${cleanTranspilerOutput.htmlCss.html}
         extractedImages.forEach((img) => {
           assetsImages.file(img.filename, img.base64Content, { base64: true });
         });
+      }
+      if (offlineFonts.length > 0) {
+        const assetsFonts = assetsFolder.folder('fonts');
+        if (assetsFonts) {
+          offlineFonts.forEach((ff) => {
+            const fontAsset = getOfflineFontAsset(ff);
+            assetsFonts.file(fontAsset.filename, fontAsset.base64Data, { base64: true });
+          });
+        }
       }
     }
 
@@ -218,7 +252,7 @@ flutter:
   assets:
     - images/
     - assets/images/
-`);
+${offlineFonts.length > 0 ? '    - assets/fonts/\n' : ''}`);
 
     zip.file('README.md', `# ${projectName} (Flutter App)\n\n## How to Run\n\`\`\`bash\nflutter pub get\nflutter run\n\`\`\``);
   }

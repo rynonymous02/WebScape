@@ -70,7 +70,15 @@ interface ProjectStoreState {
   setClipContent: (clip: boolean) => void;
 
   // Node Mutations
-  addNode: (type: NodeType, x: number, y: number, width?: number, height?: number) => string;
+  addNode: (
+    type: NodeType,
+    x: number,
+    y: number,
+    width?: number,
+    height?: number,
+    targetParentId?: string | null,
+    targetIndex?: number
+  ) => string;
   updateNode: (id: string, updates: Partial<CanvasNode>) => void;
   updateNodeStyle: (id: string, styleUpdates: Partial<NodeStyle>) => void;
   updateNodeGeometry: (id: string, x: number, y: number, width: number, height: number, rotation?: number) => void;
@@ -283,13 +291,57 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     });
   },
 
-  addNode: (type, x, y, width, height) => {
+  addNode: (type, x, y, width, height, targetParentId, targetIndex) => {
     get().pushHistorySnapshot();
-    const { project } = get();
+    const { project, selectedIds } = get();
 
-    const newNode = createNewNode(type, x, y, width, height, null);
-    const updatedNodes = { ...project.nodes, [newNode.id]: newNode };
-    const updatedRoots = [...project.rootNodeIds, newNode.id];
+    let parentId: string | null = null;
+    let insertIdx = 0;
+
+    if (targetParentId !== undefined) {
+      parentId = targetParentId;
+      insertIdx = targetIndex !== undefined ? targetIndex : 0;
+    } else if (selectedIds.length > 0) {
+      const selectedNode = project.nodes[selectedIds[0]];
+      if (selectedNode) {
+        if (selectedNode.type === 'frame') {
+          // Selected layer is a frame / container (e.g. Phone-Wrapper)
+          // -> New node becomes a child inside this frame, at the top (index 0, above 'Bawaan 1')
+          parentId = selectedNode.id;
+          insertIdx = targetIndex !== undefined ? targetIndex : 0;
+        } else if (selectedNode.parentId && project.nodes[selectedNode.parentId]) {
+          // Selected layer is a child item inside a parent (e.g. Bawaan 1 inside Phone-Wrapper)
+          // -> New node is added inside the same parent container directly above this item
+          parentId = selectedNode.parentId;
+          const parent = project.nodes[selectedNode.parentId];
+          const siblingIdx = parent.children ? parent.children.indexOf(selectedNode.id) : -1;
+          insertIdx = targetIndex !== undefined ? targetIndex : (siblingIdx >= 0 ? siblingIdx : 0);
+        } else {
+          // Selected layer is at root level and is not a frame
+          parentId = null;
+          const rootIdx = project.rootNodeIds.indexOf(selectedNode.id);
+          insertIdx = targetIndex !== undefined ? targetIndex : (rootIdx >= 0 ? rootIdx : 0);
+        }
+      }
+    }
+
+    const newNode = createNewNode(type, x, y, width, height, parentId);
+    const updatedNodes: Record<string, CanvasNode> = { ...project.nodes, [newNode.id]: newNode };
+    let updatedRoots = [...project.rootNodeIds];
+
+    if (parentId && updatedNodes[parentId]) {
+      const parent = updatedNodes[parentId];
+      const newChildren = [...(parent.children || [])];
+      const validIdx = Math.max(0, Math.min(insertIdx, newChildren.length));
+      newChildren.splice(validIdx, 0, newNode.id);
+      updatedNodes[parentId] = {
+        ...parent,
+        children: newChildren,
+      };
+    } else {
+      const validIdx = Math.max(0, Math.min(insertIdx, updatedRoots.length));
+      updatedRoots.splice(validIdx, 0, newNode.id);
+    }
 
     const updatedProject = {
       ...project,

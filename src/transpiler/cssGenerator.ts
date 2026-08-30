@@ -1,5 +1,7 @@
 import type { CanvasNode, NodeStyle } from '../types/canvas';
 import { createDefaultStyle } from '../utils/defaults';
+import { buildGoogleFontsUrl, generateOfflineFontFaceCss } from '../utils/fontLoader';
+import { extractFontsFromNodes } from '../utils/offlineFonts';
 
 export const generateRawCSS = (
   nodes: Record<string, CanvasNode> = {},
@@ -330,7 +332,22 @@ export const generateRawCSS = (
     .filter(Boolean)
     .join('\n');
 
-  const css = cssRules.join('\n\n');
+  // Extract fonts used in the design
+  const { webFonts, offlineFonts } = extractFontsFromNodes(nodes);
+  const offlineFontFaceRules = offlineFonts.map((ff) => generateOfflineFontFaceCss(ff, './fonts')).join('\n\n');
+  const googleFontsUrl = buildGoogleFontsUrl(webFonts.length > 0 ? webFonts : ['Inter']);
+
+  const finalCssRules: string[] = [];
+  if (offlineFontFaceRules) {
+    finalCssRules.push(`/* ==========================================================================\n   Offline Font Definitions (@font-face)\n   ========================================================================== */\n${offlineFontFaceRules}`);
+  }
+  finalCssRules.push(...cssRules);
+
+  const css = finalCssRules.join('\n\n');
+
+  const googleFontLinkTags = googleFontsUrl ? `  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="${googleFontsUrl}" rel="stylesheet">` : '';
 
   const fullDocument = `<!DOCTYPE html>
 <html lang="en">
@@ -338,7 +355,7 @@ export const generateRawCSS = (
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${projectName} - WebScape Export</title>
-  <style>
+${googleFontLinkTags ? googleFontLinkTags + '\n' : ''}  <style>
     * {
       box-sizing: border-box;
       margin: 0;

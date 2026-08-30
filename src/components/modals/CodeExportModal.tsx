@@ -120,6 +120,7 @@ export const CodeExportModal: React.FC = () => {
         activeTab,
         cleanTranspilerOutput: transpilerOutput,
         extractedImages,
+        nodes: cleanNodes,
       });
 
       const fileName = `${(project.name || 'webscape_project').toLowerCase().replace(/[^a-z0-9]/g, '_')}_package.zip`;

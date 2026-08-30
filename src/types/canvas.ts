@@ -106,6 +106,9 @@ export interface NodeStyle {
 
   // Typography (for text nodes)
   fontFamily: string;
+  fontSource?: 'web' | 'offline';
+  fontUrl?: string;
+  fontFile?: string;
   fontSize: number;
   fontWeight: number | string;
   fontStyle: 'normal' | 'italic';
