@@ -54,6 +54,7 @@ export interface NodeStyle {
   gradientOpacity?: number;
   overlayColor?: string;
   overlayOpacity?: number;
+  overlayGradient?: boolean;
   overlayAngle?: number;
   overlayStartOpacity?: number;
   overlayEndOpacity?: number;

@@ -1169,46 +1169,50 @@ export const PropertyInspector: React.FC = () => {
                     />
                   </div>
 
-                  {/* Gradient Overlay Header */}
+                  {/* Gradient / Solid Overlay Header & Toggle */}
                   <div className={`pt-2 border-t flex flex-col gap-2 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
                         <Sparkles className="w-3 h-3 text-sky-400" />
-                        Pengaturan Overlay Gradient Opacity
+                        Pengaturan Overlay {style.overlayGradient ? 'Gradient' : 'Solid'}
                       </span>
+                      {/* Mode Switch Toggle */}
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[9px] font-medium transition ${
+                          style.overlayGradient ? 'text-indigo-400 font-semibold' : 'text-slate-400'
+                        }`}>
+                          {style.overlayGradient ? 'Gradient' : 'Solid'}
+                        </span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={!!style.overlayGradient}
+                          onClick={() => updateNodeStyle(selectedNode.id, { 
+                            overlayGradient: !style.overlayGradient,
+                            // When turning on gradient, if start/end are 0, set useful defaults
+                            ...(!style.overlayGradient && (style.overlayStartOpacity === undefined && style.overlayEndOpacity === undefined) ? {
+                              overlayStartOpacity: 0,
+                              overlayEndOpacity: style.overlayOpacity || 0.8
+                            } : {})
+                          })}
+                          className={`relative inline-flex h-4 w-7 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            style.overlayGradient ? 'bg-indigo-600' : 'bg-slate-600'
+                          }`}
+                          title={style.overlayGradient ? 'Mode Gradient aktif (Klik untuk beralih ke Solid)' : 'Mode Solid aktif (Klik untuk beralih ke Gradient)'}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                              style.overlayGradient ? 'translate-x-3' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Quick Fade Presets */}
-                    <div className="grid grid-cols-3 gap-1">
-                      <button
-                        onClick={() => updateNodeStyle(selectedNode.id, { overlayAngle: 90, overlayStartOpacity: 0, overlayEndOpacity: 0.95, overlayStartPos: 0, overlayEndPos: 100 })}
-                        className={`text-[9px] py-1 rounded border text-center transition ${
-                          isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-indigo-500' : 'bg-slate-100 text-slate-700 border-slate-200'
-                        }`}
-                      >
-                        Fade Kanan →
-                      </button>
-                      <button
-                        onClick={() => updateNodeStyle(selectedNode.id, { overlayAngle: 270, overlayStartOpacity: 0, overlayEndOpacity: 0.95, overlayStartPos: 0, overlayEndPos: 100 })}
-                        className={`text-[9px] py-1 rounded border text-center transition ${
-                          isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-indigo-500' : 'bg-slate-100 text-slate-700 border-slate-200'
-                        }`}
-                      >
-                        ← Fade Kiri
-                      </button>
-                      <button
-                        onClick={() => updateNodeStyle(selectedNode.id, { overlayAngle: 180, overlayStartOpacity: 0, overlayEndOpacity: 0.95, overlayStartPos: 0, overlayEndPos: 100 })}
-                        className={`text-[9px] py-1 rounded border text-center transition ${
-                          isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-indigo-500' : 'bg-slate-100 text-slate-700 border-slate-200'
-                        }`}
-                      >
-                        Fade Bawah ↓
-                      </button>
-                    </div>
-
-                    {/* Warna Tint Overlay, Angle Input & Circular Angle Dial Wheel */}
-                    <div className="grid grid-cols-12 gap-2 items-center">
-                      <div className="col-span-7 flex flex-col gap-2">
+                    {/* SOLID OVERLAY CONTROLS (WHEN SWITCH IS OFF) */}
+                    {!style.overlayGradient ? (
+                      <div className="flex flex-col gap-2">
+                        {/* Warna Tint Overlay */}
                         <div>
                           <label className="text-[10px] text-slate-500 block mb-0.5">Warna Overlay Tint</label>
                           <div className={`flex items-center gap-1.5 border rounded p-1 ${
@@ -1229,108 +1233,217 @@ export const PropertyInspector: React.FC = () => {
                           </div>
                         </div>
 
-                        <div>
-                          <label className="text-[10px] text-slate-500 block mb-0.5">Arah Overlay Angle (°)</label>
-                          <input
-                            type="number"
-                            min="0"
-                            max="360"
-                            value={style.overlayAngle ?? 90}
-                            onChange={(e) => updateNodeStyle(selectedNode.id, { overlayAngle: Number(e.target.value) })}
-                            className={inputClass}
+                        {/* Visual Solid Preview Bar */}
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] text-slate-500">Visual Solid Alpha Bar</label>
+                          <div
+                            className="w-full h-4 rounded border border-white/20 shadow-inner relative overflow-hidden flex items-center justify-center"
+                            style={{
+                              backgroundColor: style.overlayColor || '#000000',
+                              opacity: style.overlayOpacity ?? 0,
+                            }}
                           />
                         </div>
-                      </div>
 
-                      <div className="col-span-5 flex justify-center pt-2">
-                        <AnglePickerWheel
-                          angle={style.overlayAngle ?? 90}
-                          onChange={(newAngle) => updateNodeStyle(selectedNode.id, { overlayAngle: newAngle })}
-                          label="Sudut Rotasi"
-                          isDark={isDark}
-                          size={64}
-                        />
-                      </div>
-                    </div>
+                        {/* Solid Opacity Slider */}
+                        <div>
+                          <div className="flex items-center justify-between mb-0.5">
+                            <label className="text-[10px] text-slate-500">Overlay Opacity (Solid)</label>
+                            <span className="text-[10px] font-mono text-indigo-400">{Math.round((style.overlayOpacity ?? 0) * 100)}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.05"
+                            value={style.overlayOpacity ?? 0}
+                            onChange={(e) => updateNodeStyle(selectedNode.id, { overlayOpacity: Number(e.target.value) })}
+                            className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                          />
+                        </div>
 
-                    {/* Inkscape style Visual Gradient Bar Preview */}
-                    <div className="flex flex-col gap-1 mt-1">
-                      <label className="text-[10px] text-slate-500">Visual Gradient Alpha Bar</label>
-                      <div
-                        className="w-full h-4 rounded border border-white/20 shadow-inner relative overflow-hidden"
-                        style={{
-                          background: `linear-gradient(to right, transparent, rgba(255,255,255,0.2)), linear-gradient(${style.overlayAngle ?? 90}deg, ${style.overlayColor || '#000000'}${Math.round((style.overlayStartOpacity ?? 0) * 255).toString(16).padStart(2, '0')} ${style.overlayStartPos ?? 0}%, ${style.overlayColor || '#000000'}${Math.round((style.overlayEndOpacity ?? 0.8) * 255).toString(16).padStart(2, '0')} ${style.overlayEndPos ?? 100}%)`,
-                        }}
-                      />
-                    </div>
+                        {/* Quick Opacity Presets */}
+                        <div className="grid grid-cols-4 gap-1">
+                          {[
+                            { label: '0% Clear', val: 0 },
+                            { label: '30% Light', val: 0.3 },
+                            { label: '60% Med', val: 0.6 },
+                            { label: '90% Dark', val: 0.9 },
+                          ].map((preset) => (
+                            <button
+                              key={preset.label}
+                              onClick={() => updateNodeStyle(selectedNode.id, { overlayOpacity: preset.val })}
+                              className={`text-[9px] py-1 rounded border text-center transition ${
+                                Math.abs((style.overlayOpacity ?? 0) - preset.val) < 0.01
+                                  ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500 font-semibold'
+                                  : isDark
+                                    ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-indigo-500'
+                                    : 'bg-slate-100 text-slate-700 border-slate-200'
+                              }`}
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      /* GRADIENT OVERLAY CONTROLS (WHEN SWITCH IS ON) */
+                      <div className="flex flex-col gap-2">
+                        {/* Quick Fade Presets */}
+                        <div className="grid grid-cols-3 gap-1">
+                          <button
+                            onClick={() => updateNodeStyle(selectedNode.id, { overlayAngle: 90, overlayStartOpacity: 0, overlayEndOpacity: 0.95, overlayStartPos: 0, overlayEndPos: 100 })}
+                            className={`text-[9px] py-1 rounded border text-center transition ${
+                              isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-indigo-500' : 'bg-slate-100 text-slate-700 border-slate-200'
+                            }`}
+                          >
+                            Fade Kanan →
+                          </button>
+                          <button
+                            onClick={() => updateNodeStyle(selectedNode.id, { overlayAngle: 270, overlayStartOpacity: 0, overlayEndOpacity: 0.95, overlayStartPos: 0, overlayEndPos: 100 })}
+                            className={`text-[9px] py-1 rounded border text-center transition ${
+                              isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-indigo-500' : 'bg-slate-100 text-slate-700 border-slate-200'
+                            }`}
+                          >
+                            ← Fade Kiri
+                          </button>
+                          <button
+                            onClick={() => updateNodeStyle(selectedNode.id, { overlayAngle: 180, overlayStartOpacity: 0, overlayEndOpacity: 0.95, overlayStartPos: 0, overlayEndPos: 100 })}
+                            className={`text-[9px] py-1 rounded border text-center transition ${
+                              isDark ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-indigo-500' : 'bg-slate-100 text-slate-700 border-slate-200'
+                            }`}
+                          >
+                            Fade Bawah ↓
+                          </button>
+                        </div>
 
-                    {/* Titik Awal (Start Stop Opacity & Position) */}
-                    <div className="grid grid-cols-2 gap-2 mt-1">
-                      <div>
-                        <div className="flex items-center justify-between mb-0.5">
-                          <label className="text-[10px] text-slate-500">Opacity Awal (Start)</label>
-                          <span className="text-[10px] font-mono text-indigo-400">{Math.round((style.overlayStartOpacity ?? (style.overlayOpacity || 0)) * 100)}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.05"
-                          value={style.overlayStartOpacity ?? (style.overlayOpacity || 0)}
-                          onChange={(e) => updateNodeStyle(selectedNode.id, { overlayStartOpacity: Number(e.target.value) })}
-                          className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-0.5">
-                          <label className="text-[10px] text-slate-500">Posisi Start Offset</label>
-                          <span className="text-[10px] font-mono text-indigo-400">{style.overlayStartPos ?? 0}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          step="1"
-                          value={style.overlayStartPos ?? 0}
-                          onChange={(e) => updateNodeStyle(selectedNode.id, { overlayStartPos: Number(e.target.value) })}
-                          className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                        />
-                      </div>
-                    </div>
+                        {/* Warna Tint Overlay, Angle Input & Circular Angle Dial Wheel */}
+                        <div className="grid grid-cols-12 gap-2 items-center">
+                          <div className="col-span-7 flex flex-col gap-2">
+                            <div>
+                              <label className="text-[10px] text-slate-500 block mb-0.5">Warna Overlay Tint</label>
+                              <div className={`flex items-center gap-1.5 border rounded p-1 ${
+                                isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-300'
+                              }`}>
+                                <input
+                                  type="color"
+                                  value={style.overlayColor || '#000000'}
+                                  onChange={(e) => updateNodeStyle(selectedNode.id, { overlayColor: e.target.value })}
+                                  className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent"
+                                />
+                                <input
+                                  type="text"
+                                  value={style.overlayColor || '#000000'}
+                                  onChange={(e) => updateNodeStyle(selectedNode.id, { overlayColor: e.target.value })}
+                                  className="w-full bg-transparent font-mono outline-none text-xs"
+                                />
+                              </div>
+                            </div>
 
-                    {/* Titik Akhir (End Stop Opacity & Position) */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <div className="flex items-center justify-between mb-0.5">
-                          <label className="text-[10px] text-slate-500">Opacity Akhir (End)</label>
-                          <span className="text-[10px] font-mono text-indigo-400">{Math.round((style.overlayEndOpacity ?? 0.8) * 100)}%</span>
+                            <div>
+                              <label className="text-[10px] text-slate-500 block mb-0.5">Arah Overlay Angle (°)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                max="360"
+                                value={style.overlayAngle ?? 90}
+                                onChange={(e) => updateNodeStyle(selectedNode.id, { overlayAngle: Number(e.target.value) })}
+                                className={inputClass}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="col-span-5 flex justify-center pt-2">
+                            <AnglePickerWheel
+                              angle={style.overlayAngle ?? 90}
+                              onChange={(newAngle) => updateNodeStyle(selectedNode.id, { overlayAngle: newAngle })}
+                              label="Sudut Rotasi"
+                              isDark={isDark}
+                              size={64}
+                            />
+                          </div>
                         </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.05"
-                          value={style.overlayEndOpacity ?? 0.8}
-                          onChange={(e) => updateNodeStyle(selectedNode.id, { overlayEndOpacity: Number(e.target.value) })}
-                          className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-0.5">
-                          <label className="text-[10px] text-slate-500">Posisi End Offset</label>
-                          <span className="text-[10px] font-mono text-indigo-400">{style.overlayEndPos ?? 100}%</span>
+
+                        {/* Inkscape style Visual Gradient Bar Preview */}
+                        <div className="flex flex-col gap-1 mt-1">
+                          <label className="text-[10px] text-slate-500">Visual Gradient Alpha Bar</label>
+                          <div
+                            className="w-full h-4 rounded border border-white/20 shadow-inner relative overflow-hidden"
+                            style={{
+                              background: `linear-gradient(to right, transparent, rgba(255,255,255,0.2)), linear-gradient(${style.overlayAngle ?? 90}deg, ${style.overlayColor || '#000000'}${Math.round((style.overlayStartOpacity ?? 0) * 255).toString(16).padStart(2, '0')} ${style.overlayStartPos ?? 0}%, ${style.overlayColor || '#000000'}${Math.round((style.overlayEndOpacity ?? 0.8) * 255).toString(16).padStart(2, '0')} ${style.overlayEndPos ?? 100}%)`,
+                            }}
+                          />
                         </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          step="1"
-                          value={style.overlayEndPos ?? 100}
-                          onChange={(e) => updateNodeStyle(selectedNode.id, { overlayEndPos: Number(e.target.value) })}
-                          className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                        />
+
+                        {/* Titik Awal (Start Stop Opacity & Position) */}
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          <div>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <label className="text-[10px] text-slate-500">Opacity Awal (Start)</label>
+                              <span className="text-[10px] font-mono text-indigo-400">{Math.round((style.overlayStartOpacity ?? 0) * 100)}%</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.05"
+                              value={style.overlayStartOpacity ?? 0}
+                              onChange={(e) => updateNodeStyle(selectedNode.id, { overlayStartOpacity: Number(e.target.value) })}
+                              className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <label className="text-[10px] text-slate-500">Posisi Start Offset</label>
+                              <span className="text-[10px] font-mono text-indigo-400">{style.overlayStartPos ?? 0}%</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              step="1"
+                              value={style.overlayStartPos ?? 0}
+                              onChange={(e) => updateNodeStyle(selectedNode.id, { overlayStartPos: Number(e.target.value) })}
+                              className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Titik Akhir (End Stop Opacity & Position) */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <label className="text-[10px] text-slate-500">Opacity Akhir (End)</label>
+                              <span className="text-[10px] font-mono text-indigo-400">{Math.round((style.overlayEndOpacity ?? 0.8) * 100)}%</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.05"
+                              value={style.overlayEndOpacity ?? 0.8}
+                              onChange={(e) => updateNodeStyle(selectedNode.id, { overlayEndOpacity: Number(e.target.value) })}
+                              className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <label className="text-[10px] text-slate-500">Posisi End Offset</label>
+                              <span className="text-[10px] font-mono text-indigo-400">{style.overlayEndPos ?? 100}%</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              step="1"
+                              value={style.overlayEndPos ?? 100}
+                              onChange={(e) => updateNodeStyle(selectedNode.id, { overlayEndPos: Number(e.target.value) })}
+                              className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            />
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>

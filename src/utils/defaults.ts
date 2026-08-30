@@ -26,6 +26,7 @@ export const createDefaultStyle = (override: Partial<NodeStyle> = {}): NodeStyle
   gradientOpacity: 1,
   overlayColor: '#000000',
   overlayOpacity: 0,
+  overlayGradient: false,
   overlayAngle: 90,
   overlayStartOpacity: 0,
   overlayEndOpacity: 0.8,

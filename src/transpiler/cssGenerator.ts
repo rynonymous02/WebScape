@@ -152,24 +152,32 @@ export const generateRawCSS = (
     }
     
     const color = s.overlayColor || '#000000';
-    const angle = s.overlayAngle ?? 90;
-    const startOpacity = s.overlayStartOpacity ?? (s.overlayOpacity || 0);
-    const endOpacity = s.overlayEndOpacity ?? 0;
-    const startPos = s.overlayStartPos ?? 0;
-    const endPos = s.overlayEndPos ?? 100;
+    const hexToRgba = (hex: string, alpha: number) => {
+      let clean = (hex || '#000000').replace('#', '');
+      if (clean.length === 3) clean = clean[0] + clean[0] + clean[1] + clean[1] + clean[2] + clean[2];
+      if (clean.length !== 6) return `rgba(0, 0, 0, ${alpha})`;
+      const r = parseInt(clean.substring(0, 2), 16);
+      const g = parseInt(clean.substring(2, 4), 16);
+      const b = parseInt(clean.substring(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    };
 
     let overlayGrad: string | null = null;
-    if (startOpacity > 0 || endOpacity > 0) {
-      const hexToRgba = (hex: string, alpha: number) => {
-        let clean = (hex || '#000000').replace('#', '');
-        if (clean.length === 3) clean = clean[0] + clean[0] + clean[1] + clean[1] + clean[2] + clean[2];
-        if (clean.length !== 6) return `rgba(0, 0, 0, ${alpha})`;
-        const r = parseInt(clean.substring(0, 2), 16);
-        const g = parseInt(clean.substring(2, 4), 16);
-        const b = parseInt(clean.substring(4, 6), 16);
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-      };
-      overlayGrad = `linear-gradient(${angle}deg, ${hexToRgba(color, startOpacity)} ${startPos}%, ${hexToRgba(color, endOpacity)} ${endPos}%)`;
+    if (s.overlayGradient) {
+      const angle = s.overlayAngle ?? 90;
+      const startOpacity = s.overlayStartOpacity ?? 0;
+      const endOpacity = s.overlayEndOpacity ?? 0;
+      const startPos = s.overlayStartPos ?? 0;
+      const endPos = s.overlayEndPos ?? 100;
+      if (startOpacity > 0 || endOpacity > 0) {
+        overlayGrad = `linear-gradient(${angle}deg, ${hexToRgba(color, startOpacity)} ${startPos}%, ${hexToRgba(color, endOpacity)} ${endPos}%)`;
+      }
+    } else {
+      const solidOpacity = s.overlayOpacity ?? 0;
+      if (solidOpacity > 0) {
+        const rgba = hexToRgba(color, solidOpacity);
+        overlayGrad = `linear-gradient(${rgba}, ${rgba})`;
+      }
     }
 
     let baseBgStr: string | undefined = undefined;
