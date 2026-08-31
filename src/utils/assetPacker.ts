@@ -43,9 +43,45 @@ export function extractImagesFromNodes(
     const node = cleanNodes[id];
     if (!node) return;
 
+    // 1. Extract raster image URL (e.g. uploaded photo / avatar)
+    const imgUrl = node.style.imageUrl;
+    if (imgUrl && imgUrl.startsWith('data:')) {
+      const match = imgUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        const mimeType = match[1];
+        const base64Content = match[2];
+        let ext = 'png';
+        if (mimeType.includes('jpeg') || mimeType.includes('jpg')) ext = 'jpg';
+        else if (mimeType.includes('webp')) ext = 'webp';
+        else if (mimeType.includes('svg')) ext = 'svg';
+        else if (mimeType.includes('gif')) ext = 'gif';
+
+        const safeName = (node.name || 'image')
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '_')
+          .replace(/_+/g, '_');
+        const shortId = (node.id || '').replace('node_', '').slice(0, 6);
+        const filename = `${safeName}_${shortId}.${ext}`;
+        const relativePath = `images/${filename}`;
+
+        extractedImages.push({
+          nodeId: node.id,
+          originalDataUrl: imgUrl,
+          filename,
+          relativePath,
+          base64Content,
+          mimeType,
+        });
+
+        // Replace inline base64 with clean relative path
+        node.style.imageUrl = relativePath;
+      }
+    }
+
+    // 2. Extract background image
     const bgImage = node.style.backgroundImage;
-    if (bgImage && bgImage.startsWith('data:image/')) {
-      const match = bgImage.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,(.+)$/);
+    if (bgImage && bgImage.startsWith('data:')) {
+      const match = bgImage.match(/^data:([^;]+);base64,(.+)$/);
       if (match) {
         const mimeType = match[1];
         const base64Content = match[2];
@@ -55,7 +91,7 @@ export function extractImagesFromNodes(
         else if (mimeType.includes('svg')) ext = 'svg';
         else if (mimeType.includes('gif')) ext = 'gif';
 
-        const safeName = (node.name || 'image')
+        const safeName = (node.name || 'bg_image')
           .toLowerCase()
           .replace(/[^a-z0-9]/g, '_')
           .replace(/_+/g, '_');
@@ -75,6 +111,34 @@ export function extractImagesFromNodes(
         // Replace inline base64 with clean relative path
         node.style.backgroundImage = relativePath;
       }
+    }
+
+    // 3. Extract SVG vector assets into standalone .svg files in images/ directory
+    if (node.type === 'image' && node.style.imageType === 'vector' && node.style.svgContent) {
+      const safeName = (node.name || 'vector_icon')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '_')
+        .replace(/_+/g, '_');
+      const shortId = (node.id || '').replace('node_', '').slice(0, 6);
+      const filename = `${safeName}_${shortId}.svg`;
+      const relativePath = `images/${filename}`;
+
+      // Encode SVG string to base64 for JSZip
+      const utf8Bytes = new TextEncoder().encode(node.style.svgContent);
+      let binaryStr = '';
+      for (let i = 0; i < utf8Bytes.length; i++) {
+        binaryStr += String.fromCharCode(utf8Bytes[i]);
+      }
+      const base64Content = btoa(binaryStr);
+
+      extractedImages.push({
+        nodeId: node.id,
+        originalDataUrl: node.style.svgContent,
+        filename,
+        relativePath,
+        base64Content,
+        mimeType: 'image/svg+xml',
+      });
     }
 
     if (node.children) {

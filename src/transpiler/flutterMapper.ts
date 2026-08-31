@@ -130,7 +130,12 @@ export const generateFlutter = (
     // 2. IMAGE / VECTOR
     if (node.type === 'image') {
       const imgUrl = s.imageUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800';
-      return `${indent}ClipRRect(\n${innerIndent}borderRadius: BorderRadius.circular(${s.borderRadius || 0}),\n${innerIndent}child: Image.network(\n${innerIndent}  '${imgUrl}',\n${innerIndent}  width: ${node.width},\n${innerIndent}  height: ${node.height},\n${innerIndent}  fit: BoxFit.${s.objectFit === 'contain' ? 'contain' : s.objectFit === 'fill' ? 'fill' : 'cover'},\n${innerIndent}),\n${indent})`;
+      const isLocal = imgUrl.startsWith('images/') || imgUrl.startsWith('assets/');
+      const imageWidget = isLocal
+        ? `Image.asset(\n${innerIndent}  '${imgUrl}',\n${innerIndent}  width: ${node.width},\n${innerIndent}  height: ${node.height},\n${innerIndent}  fit: BoxFit.${s.objectFit === 'contain' ? 'contain' : s.objectFit === 'fill' ? 'fill' : 'cover'},\n${innerIndent})`
+        : `Image.network(\n${innerIndent}  '${imgUrl}',\n${innerIndent}  width: ${node.width},\n${innerIndent}  height: ${node.height},\n${innerIndent}  fit: BoxFit.${s.objectFit === 'contain' ? 'contain' : s.objectFit === 'fill' ? 'fill' : 'cover'},\n${innerIndent})`;
+
+      return `${indent}ClipRRect(\n${innerIndent}borderRadius: BorderRadius.circular(${s.borderRadius || 0}),\n${innerIndent}child: ${imageWidget},\n${indent})`;
     }
 
     // 3. ELLIPSE / CIRCLE
