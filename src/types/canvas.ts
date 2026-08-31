@@ -49,6 +49,9 @@ export interface NodeStyle {
   svgContent?: string;
   blendMode?: string;
   objectFit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down';
+  cropOffsetX?: number;
+  cropOffsetY?: number;
+  cropZoom?: number;
   vectorColor?: string;
   vectorColorMode?: 'original' | 'custom' | 'monochrome';
   vectorStroke?: string;

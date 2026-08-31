@@ -21,6 +21,9 @@ export const createDefaultStyle = (override: Partial<NodeStyle> = {}): NodeStyle
   svgContent: '<svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
   blendMode: 'normal',
   objectFit: 'cover',
+  cropOffsetX: 0,
+  cropOffsetY: 0,
+  cropZoom: 1,
   vectorColor: '#6366f1',
   vectorColorMode: 'custom',
 
@@ -178,8 +181,8 @@ export const createNewNode = (
       overlayColor: '#000000',
     });
     if (!customName) name = 'Image Object';
-    if (!width || width === 120) width = 240;
-    if (!height || height === 100) height = 180;
+    if (!width || width === 120) width = 100;
+    if (!height || height === 100) height = 100;
   }
 
   return {

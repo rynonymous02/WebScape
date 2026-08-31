@@ -101,12 +101,15 @@ export const SVGCanvas: React.FC = () => {
 
   // Transform / Drag state
   const [dragState, setDragState] = useState<{
-    mode: 'none' | 'move' | 'resize' | 'rotate' | 'draw' | 'radius';
+    mode: 'none' | 'move' | 'resize' | 'rotate' | 'draw' | 'radius' | 'crop-pan' | 'marquee';
     handle?: string;
     corner?: 'tl' | 'tr' | 'br' | 'bl';
     startX: number;
     startY: number;
+    currentX?: number;
+    currentY?: number;
     startRadius?: number;
+    startCropOffset?: { x: number; y: number };
     nodeStartGeom?: { x: number; y: number; width: number; height: number; rotation: number };
     nodesStartGeom?: Record<
       string,
@@ -129,8 +132,8 @@ export const SVGCanvas: React.FC = () => {
     drawingNodeId?: string;
   }>({ mode: 'none', startX: 0, startY: 0 });
 
-  // Selection mode: 'transform' (move, resize, rotate) vs 'radius' (corner radius direct manipulation)
-  const [selectionMode, setSelectionMode] = useState<'transform' | 'radius'>('transform');
+  // Selection mode: 'transform' (move, resize, rotate) vs 'radius' (corner radius) vs 'crop' (wrapper/crop resize mode)
+  const [selectionMode, setSelectionMode] = useState<'transform' | 'radius' | 'crop'>('transform');
   const [hoveredRadiusCorner, setHoveredRadiusCorner] = useState<string | null>(null);
   const [liveRadiusInfo, setLiveRadiusInfo] = useState<{ text: string; clientX: number; clientY: number } | null>(null);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
@@ -158,6 +161,36 @@ export const SVGCanvas: React.FC = () => {
     if (dragState.mode === 'none') return;
 
     const handleWindowPointerMove = (e: PointerEvent) => {
+      if (dragState.mode === 'marquee') {
+        dragHasMovedRef.current = true;
+        const pos = screenToCanvasCoords(e.clientX, e.clientY);
+        setDragState((prev) => ({
+          ...prev,
+          currentX: pos.x,
+          currentY: pos.y,
+        }));
+        return;
+      }
+
+      if (dragState.mode === 'crop-pan' && selectedNode) {
+        const pos = screenToCanvasCoords(e.clientX, e.clientY);
+        const dx = pos.x - dragState.startX;
+        const dy = pos.y - dragState.startY;
+
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+          dragHasMovedRef.current = true;
+        }
+
+        const newCropX = Math.round((dragState.startCropOffset?.x || 0) + dx);
+        const newCropY = Math.round((dragState.startCropOffset?.y || 0) + dy);
+
+        updateNodeStyle(selectedNode.id, {
+          cropOffsetX: newCropX,
+          cropOffsetY: newCropY,
+        }, true);
+        return;
+      }
+
       if (dragState.mode === 'draw' && dragState.drawingNodeId && dragState.drawStartPos) {
         dragHasMovedRef.current = true;
         const pos = screenToCanvasCoords(e.clientX, e.clientY);
@@ -231,22 +264,92 @@ export const SVGCanvas: React.FC = () => {
 
         let { x, y, width, height } = dragState.nodeStartGeom;
         const h = dragState.handle;
+        const startW = dragState.nodeStartGeom.width;
+        const startH = dragState.nodeStartGeom.height;
+        const aspectRatio = (startW || 1) / (startH || 1);
 
-        if (h.includes('r')) {
-          width = Math.max(10, dragState.nodeStartGeom.width + dx);
-        }
-        if (h.includes('l')) {
-          width = Math.max(10, dragState.nodeStartGeom.width - dx);
-          x = dragState.nodeStartGeom.x + (dragState.nodeStartGeom.width - width);
-        }
-        if (h.includes('b')) {
-          height = Math.max(10, dragState.nodeStartGeom.height + dy);
-        }
-        if (h.includes('t')) {
-          height = Math.max(10, dragState.nodeStartGeom.height - dy);
-          y = dragState.nodeStartGeom.y + (dragState.nodeStartGeom.height - height);
+        // FREEFORM RESIZE: If Shift key is held OR in 'crop' mode
+        // PROPORTIONAL RESIZE: By default (without Shift key)
+        const isFreeform = e.shiftKey || selectionMode === 'crop';
+
+        if (isFreeform) {
+          // Freeform scaling (unconstrained)
+          if (h.includes('r')) {
+            width = Math.max(10, startW + dx);
+          }
+          if (h.includes('l')) {
+            width = Math.max(10, startW - dx);
+            x = dragState.nodeStartGeom.x + (startW - width);
+          }
+          if (h.includes('b')) {
+            height = Math.max(10, startH + dy);
+          }
+          if (h.includes('t')) {
+            height = Math.max(10, startH - dy);
+            y = dragState.nodeStartGeom.y + (startH - height);
+          }
+        } else {
+          // Consistent Proportional scaling (Ratio is preserved automatically!)
+          if (h === 'br') {
+            const rawW = Math.max(10, startW + dx);
+            const rawH = Math.max(10, startH + dy);
+            const scaleX = rawW / startW;
+            const scaleY = rawH / startH;
+            const scale = Math.abs(scaleX - 1) > Math.abs(scaleY - 1) ? scaleX : scaleY;
+            width = Math.max(10, Math.round(startW * scale));
+            height = Math.max(10, Math.round(width / aspectRatio));
+          } else if (h === 'bl') {
+            const rawW = Math.max(10, startW - dx);
+            const rawH = Math.max(10, startH + dy);
+            const scaleX = rawW / startW;
+            const scaleY = rawH / startH;
+            const scale = Math.abs(scaleX - 1) > Math.abs(scaleY - 1) ? scaleX : scaleY;
+            width = Math.max(10, Math.round(startW * scale));
+            height = Math.max(10, Math.round(width / aspectRatio));
+            x = dragState.nodeStartGeom.x + (startW - width);
+          } else if (h === 'tr') {
+            const rawW = Math.max(10, startW + dx);
+            const rawH = Math.max(10, startH - dy);
+            const scaleX = rawW / startW;
+            const scaleY = rawH / startH;
+            const scale = Math.abs(scaleX - 1) > Math.abs(scaleY - 1) ? scaleX : scaleY;
+            width = Math.max(10, Math.round(startW * scale));
+            height = Math.max(10, Math.round(width / aspectRatio));
+            y = dragState.nodeStartGeom.y + (startH - height);
+          } else if (h === 'tl') {
+            const rawW = Math.max(10, startW - dx);
+            const rawH = Math.max(10, startH - dy);
+            const scaleX = rawW / startW;
+            const scaleY = rawH / startH;
+            const scale = Math.abs(scaleX - 1) > Math.abs(scaleY - 1) ? scaleX : scaleY;
+            width = Math.max(10, Math.round(startW * scale));
+            height = Math.max(10, Math.round(width / aspectRatio));
+            x = dragState.nodeStartGeom.x + (startW - width);
+            y = dragState.nodeStartGeom.y + (startH - height);
+          } else if (h === 'mr') {
+            width = Math.max(10, startW + dx);
+            height = Math.max(10, Math.round(width / aspectRatio));
+            y = dragState.nodeStartGeom.y + (startH - height) / 2;
+          } else if (h === 'ml') {
+            width = Math.max(10, startW - dx);
+            height = Math.max(10, Math.round(width / aspectRatio));
+            x = dragState.nodeStartGeom.x + (startW - width);
+            y = dragState.nodeStartGeom.y + (startH - height) / 2;
+          } else if (h === 'bm') {
+            height = Math.max(10, startH + dy);
+            width = Math.max(10, Math.round(height * aspectRatio));
+            x = dragState.nodeStartGeom.x + (startW - width) / 2;
+          } else if (h === 'tm') {
+            height = Math.max(10, startH - dy);
+            width = Math.max(10, Math.round(height * aspectRatio));
+            x = dragState.nodeStartGeom.x + (startW - width) / 2;
+            y = dragState.nodeStartGeom.y + (startH - height);
+          }
         }
 
+        if (e.shiftKey && selectionMode !== 'crop' && selectedNode.type === 'image' && selectedNode.style.objectFit !== 'fill') {
+          updateNodeStyle(selectedNode.id, { objectFit: 'fill' }, true);
+        }
         updateNodeGeometry(selectedNode.id, x, y, width, height, dragState.nodeStartGeom.rotation, true);
         return;
       }
@@ -348,7 +451,78 @@ export const SVGCanvas: React.FC = () => {
       }
     };
 
-    const handleWindowPointerUp = () => {
+    const handleWindowPointerUp = (e: PointerEvent) => {
+      if (dragState.mode === 'marquee' && dragState.currentX !== undefined && dragState.currentY !== undefined) {
+        const minX = Math.min(dragState.startX, dragState.currentX);
+        const maxX = Math.max(dragState.startX, dragState.currentX);
+        const minY = Math.min(dragState.startY, dragState.currentY);
+        const maxY = Math.max(dragState.startY, dragState.currentY);
+
+        const marqueeWidth = maxX - minX;
+        const marqueeHeight = maxY - minY;
+
+        if (marqueeWidth >= 4 || marqueeHeight >= 4) {
+          const storeState = useProjectStore.getState();
+          const nodes = storeState.project.nodes;
+
+          // Helper to get absolute bounds for any node
+          const getNodeAbsoluteBounds = (n: CanvasNode) => {
+            let absX = n.x;
+            let absY = n.y;
+            let width = n.width;
+            let height = n.height;
+            if (n.parentId && containerRef.current) {
+              const domEl = document.getElementById(n.id);
+              if (domEl) {
+                const containerRect = containerRef.current.getBoundingClientRect();
+                const elRect = domEl.getBoundingClientRect();
+                absX = (elRect.left - containerRect.left - storeState.canvasTransform.panX) / storeState.canvasTransform.zoom;
+                absY = (elRect.top - containerRect.top - storeState.canvasTransform.panY) / storeState.canvasTransform.zoom;
+                width = elRect.width / storeState.canvasTransform.zoom;
+                height = elRect.height / storeState.canvasTransform.zoom;
+              }
+            }
+            return { absX, absY, width, height };
+          };
+
+          // Find nodes that are 100% STRICTLY ENCLOSED inside the marquee selection box
+          // (User requirement: Only select objects that are 100% covered by the box, ignore partial overlaps like 1-80%)
+          const fullyEnclosedIds: string[] = [];
+
+          Object.values(nodes).forEach((n) => {
+            if (n.hidden) return;
+            const { absX, absY, width, height } = getNodeAbsoluteBounds(n);
+            const nodeRight = absX + width;
+            const nodeBottom = absY + height;
+
+            // 100% ENCLOSURE FORMULA
+            const is100PercentEnclosed = 
+              absX >= minX &&
+              absY >= minY &&
+              nodeRight <= maxX &&
+              nodeBottom <= maxY;
+
+            if (is100PercentEnclosed) {
+              fullyEnclosedIds.push(n.id);
+            }
+          });
+
+          if (fullyEnclosedIds.length > 0) {
+            if (e.shiftKey) {
+              const merged = Array.from(new Set([...selectedIds, ...fullyEnclosedIds]));
+              setSelectedIds(merged);
+            } else {
+              setSelectedIds(fullyEnclosedIds);
+            }
+            setSelectionMode('transform');
+          } else {
+            if (!e.shiftKey) {
+              setSelectedIds([]);
+            }
+          }
+        }
+      }
+
       if (dragState.mode === 'draw' && dragState.drawingNodeId && dragState.drawStartPos) {
         const storeState = useProjectStore.getState();
         const node = storeState.project.nodes[dragState.drawingNodeId];
@@ -528,8 +702,18 @@ export const SVGCanvas: React.FC = () => {
     }
 
     if (activeTool === 'select' || activeTool === 'image') {
-      setSelectedIds([]);
+      if (!e.shiftKey) {
+        setSelectedIds([]);
+      }
       setSelectionMode('transform');
+      setDragState({
+        mode: 'marquee',
+        startX: pos.x,
+        startY: pos.y,
+        currentX: pos.x,
+        currentY: pos.y,
+      });
+      return;
     }
   };
 
@@ -559,6 +743,25 @@ export const SVGCanvas: React.FC = () => {
 
       // Visual front-most priority: Select the clicked element directly
       const targetNode = node;
+
+      if (selectionMode === 'crop' && selectedIds.includes(targetNode.id)) {
+        dragStartSnapshotRef.current = {
+          nodes: JSON.parse(JSON.stringify(project.nodes)),
+          rootNodeIds: [...project.rootNodeIds],
+        };
+        dragHasMovedRef.current = false;
+        const pos = screenToCanvasCoords(e.clientX, e.clientY);
+        setDragState({
+          mode: 'crop-pan',
+          startX: pos.x,
+          startY: pos.y,
+          startCropOffset: {
+            x: targetNode.style.cropOffsetX || 0,
+            y: targetNode.style.cropOffsetY || 0,
+          },
+        });
+        return;
+      }
 
       let nextSelectedIds: string[];
       if (e.shiftKey) {
@@ -942,7 +1145,6 @@ export const SVGCanvas: React.FC = () => {
     if (node.type === 'image') {
       const isVector = style.imageType === 'vector';
       const blendMode = style.blendMode || 'normal';
-      const objectFit = style.objectFit || 'cover';
       const vectorColor = style.vectorColor || '#6366f1';
 
       // Calculate overlay gradient or solid overlay for image/vector only if overlayEnabled is true
@@ -968,14 +1170,22 @@ export const SVGCanvas: React.FC = () => {
         }
       }
 
+      const cropTransform = (style.cropOffsetX || style.cropOffsetY || (style.cropZoom && style.cropZoom !== 1))
+        ? `translate(${style.cropOffsetX || 0}px, ${style.cropOffsetY || 0}px) scale(${style.cropZoom || 1})`
+        : undefined;
+
+      const isCropMode = selectionMode === 'crop' && selectedIds.includes(node.id);
+      const effectiveObjectFit = isCropMode ? (style.objectFit && style.objectFit !== 'fill' ? style.objectFit : 'cover') : (style.objectFit || 'cover');
+
       return (
         <div
           key={node.id}
           id={node.id}
           onPointerDown={handleNodePointerDown}
           onDoubleClick={(e) => {
-            if (node.parentId) {
-              e.stopPropagation();
+            e.stopPropagation();
+            setSelectionMode((prev) => (prev === 'crop' ? 'transform' : 'crop'));
+            if (!selectedIds.includes(node.id)) {
               setSelectedIds([node.id]);
             }
           }}
@@ -989,52 +1199,62 @@ export const SVGCanvas: React.FC = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            cursor: selectionMode === 'crop' && selectedIds.includes(node.id) ? 'move' : undefined,
             mixBlendMode: !isVector && blendMode && blendMode !== 'normal' ? (blendMode as any) : undefined,
           }}
         >
-          {isVector ? (
-            style.svgContent ? (
-              <div
-                className="w-full h-full flex items-center justify-center pointer-events-none select-none [&>svg]:w-full [&>svg]:h-full"
-                style={{
-                  color: vectorColor,
-                  fill: vectorColor,
-                }}
-                dangerouslySetInnerHTML={{
-                  __html: style.svgContent
-                    .replace(/<svg\b([^>]*)>/i, (_match, p1) => {
-                      let attr = p1;
-                      if (!attr.includes('width=')) attr += ' width="100%"';
-                      if (!attr.includes('height=')) attr += ' height="100%"';
-                      if (!attr.includes('preserveAspectRatio=')) attr += ' preserveAspectRatio="xMidYMid meet"';
-                      return `<svg ${attr}>`;
-                    })
-                }}
-              />
+          <div
+            className="w-full h-full flex items-center justify-center pointer-events-none select-none"
+            style={{
+              transform: cropTransform,
+              width: '100%',
+              height: '100%',
+            }}
+          >
+            {isVector ? (
+              style.svgContent ? (
+                <div
+                  className="w-full h-full flex items-center justify-center pointer-events-none select-none [&>svg]:w-full [&>svg]:h-full"
+                  style={{
+                    color: vectorColor,
+                    fill: vectorColor,
+                  }}
+                  dangerouslySetInnerHTML={{
+                    __html: style.svgContent
+                      .replace(/<svg\b([^>]*)>/i, (_match, p1) => {
+                        let attr = p1;
+                        if (!attr.includes('width=')) attr += ' width="100%"';
+                        if (!attr.includes('height=')) attr += ' height="100%"';
+                        if (!attr.includes('preserveAspectRatio=')) attr += ' preserveAspectRatio="xMidYMid meet"';
+                        return `<svg ${attr}>`;
+                      })
+                  }}
+                />
+              ) : (
+                <img
+                  src={style.imageUrl || 'https://api.iconify.design/lucide:sparkles.svg'}
+                  alt={node.name}
+                  className="w-full h-full pointer-events-none select-none"
+                  style={{
+                    objectFit: effectiveObjectFit,
+                  }}
+                  draggable={false}
+                />
+              )
             ) : (
               <img
-                src={style.imageUrl || 'https://api.iconify.design/lucide:sparkles.svg'}
+                src={style.imageUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80'}
                 alt={node.name}
                 className="w-full h-full pointer-events-none select-none"
                 style={{
-                  objectFit,
+                  objectFit: effectiveObjectFit,
+                  mixBlendMode: blendMode as any,
+                  display: 'block',
                 }}
                 draggable={false}
               />
-            )
-          ) : (
-            <img
-              src={style.imageUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80'}
-              alt={node.name}
-              className="w-full h-full pointer-events-none select-none"
-              style={{
-                objectFit,
-                mixBlendMode: blendMode as any,
-                display: 'block',
-              }}
-              draggable={false}
-            />
-          )}
+            )}
+          </div>
 
           {/* Overlay Gradient / Solid Layer */}
           {overlayGrad && (
@@ -1091,6 +1311,20 @@ export const SVGCanvas: React.FC = () => {
       dragHasMovedRef.current = false;
 
       const pos = screenToCanvasCoords(e.clientX, e.clientY);
+
+      if (selectionMode === 'crop' && selectedNode) {
+        setDragState({
+          mode: 'crop-pan',
+          startX: pos.x,
+          startY: pos.y,
+          startCropOffset: {
+            x: selectedNode.style.cropOffsetX || 0,
+            y: selectedNode.style.cropOffsetY || 0,
+          },
+        });
+        return;
+      }
+
       const activeIds = selectedIds.length > 0 ? selectedIds : (selectedNode ? [selectedNode.id] : []);
       const nodesStartGeom: Record<string, { x: number; y: number; width: number; height: number; rotation: number; parentId: string | null; positionMode?: string; startLeft?: number; startTop?: number }> = {};
       activeIds.forEach((id) => {
@@ -1320,36 +1554,66 @@ export const SVGCanvas: React.FC = () => {
           width={width}
           height={height}
           fill="none"
-          stroke={selectionMode === 'radius' ? '#8b5cf6' : '#6366f1'}
-          strokeWidth={(selectionMode === 'radius' ? 2 : 1.5) / canvasTransform.zoom}
-          strokeDasharray={selectionMode === 'radius' ? '3 3' : '4 4'}
+          stroke={selectionMode === 'radius' ? '#8b5cf6' : (selectionMode === 'crop' ? '#10b981' : '#6366f1')}
+          strokeWidth={(selectionMode === 'radius' || selectionMode === 'crop' ? 2 : 1.5) / canvasTransform.zoom}
+          strokeDasharray={selectionMode === 'radius' ? '3 3' : (selectionMode === 'crop' ? '4 2' : '4 4')}
           style={{ pointerEvents: 'stroke' }}
           className={isMovable ? 'cursor-move' : 'cursor-default'}
           onPointerDown={handleBoundingBoxPointerDown}
         />
 
-        {/* Transform Handles: Rotate Knob & 8 Resize Knots (ONLY in transform mode) */}
-        {selectionMode === 'transform' && (
+        {/* Crop Mode Status Badge */}
+        {selectionMode === 'crop' && (
+          <g transform={`translate(${absX}, ${absY - 24 / canvasTransform.zoom})`}>
+            <rect
+              x={0}
+              y={0}
+              width={160 / canvasTransform.zoom}
+              height={18 / canvasTransform.zoom}
+              rx={4 / canvasTransform.zoom}
+              fill="#065f46"
+              stroke="#10b981"
+              strokeWidth={1 / canvasTransform.zoom}
+            />
+            <text
+              x={8 / canvasTransform.zoom}
+              y={13 / canvasTransform.zoom}
+              fill="#6ee7b7"
+              fontSize={10 / canvasTransform.zoom}
+              fontWeight="600"
+              fontFamily="sans-serif"
+            >
+              Wrapper Crop Mode (2x Click)
+            </text>
+          </g>
+        )}
+
+        {/* Transform Handles: Rotate Knob & 8 Resize Knots */}
+        {(selectionMode === 'transform' || selectionMode === 'crop') && (
           <>
-            {/* Rotate Stem & Knot */}
-            <line
-              x1={absX + width / 2}
-              y1={absY}
-              x2={rotX}
-              y2={rotY}
-              stroke="#6366f1"
-              strokeWidth={1.5 / canvasTransform.zoom}
-            />
-            <circle
-              cx={rotX}
-              cy={rotY}
-              r={5 / canvasTransform.zoom}
-              fill="#818cf8"
-              stroke="#ffffff"
-              strokeWidth={1.5 / canvasTransform.zoom}
-              className="cursor-grab"
-              onPointerDown={handleRotateDown}
-            />
+            {/* Rotate Stem & Knot only in transform mode */}
+            {selectionMode === 'transform' && (
+              <>
+                <line
+                  x1={absX + width / 2}
+                  y1={absY}
+                  x2={rotX}
+                  y2={rotY}
+                  stroke="#6366f1"
+                  strokeWidth={1.5 / canvasTransform.zoom}
+                />
+                <circle
+                  cx={rotX}
+                  cy={rotY}
+                  r={5 / canvasTransform.zoom}
+                  fill="#818cf8"
+                  stroke="#ffffff"
+                  strokeWidth={1.5 / canvasTransform.zoom}
+                  className="cursor-grab"
+                  onPointerDown={handleRotateDown}
+                />
+              </>
+            )}
 
             {/* 8 Resize Knots */}
             {handles.map((h) => (
@@ -1360,7 +1624,7 @@ export const SVGCanvas: React.FC = () => {
                 width={8 / canvasTransform.zoom}
                 height={8 / canvasTransform.zoom}
                 fill="#ffffff"
-                stroke="#4f46e5"
+                stroke={selectionMode === 'crop' ? '#059669' : '#4f46e5'}
                 strokeWidth={1.5 / canvasTransform.zoom}
                 style={{ cursor: h.cursor }}
                 onPointerDown={handleResizeDown(h.id)}
@@ -1589,6 +1853,21 @@ export const SVGCanvas: React.FC = () => {
 
           {/* Render Bounding Box Controls */}
           {renderBoundingBox()}
+
+          {/* Render Marquee Selection Box */}
+          {dragState.mode === 'marquee' && dragState.currentX !== undefined && dragState.currentY !== undefined && (
+            <rect
+              x={Math.min(dragState.startX, dragState.currentX)}
+              y={Math.min(dragState.startY, dragState.currentY)}
+              width={Math.max(1, Math.abs(dragState.currentX - dragState.startX))}
+              height={Math.max(1, Math.abs(dragState.currentY - dragState.startY))}
+              fill="rgba(99, 102, 241, 0.08)"
+              stroke="#6366f1"
+              strokeWidth={1 / canvasTransform.zoom}
+              strokeDasharray="4 3"
+              style={{ pointerEvents: 'none' }}
+            />
+          )}
         </g>
       </svg>
 
