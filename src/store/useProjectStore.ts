@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CanvasNode, NodeStyle, NodeType, ProjectState, ToolType, ProjectAsset } from '../types/canvas';
+import type { CanvasNode, NodeStyle, NodeType, ProjectState, ToolType, ProjectAsset, FrameRole } from '../types/canvas';
 import { createInitialProject, createNewNode } from '../utils/defaults';
 import { storageService } from '../services/storage';
 
@@ -86,6 +86,7 @@ interface ProjectStoreState {
   duplicateSelected: () => void;
   groupSelected: () => void;
   ungroupSelected: () => void;
+  convertToFrame: (id: string) => void;
   reorderNode: (id: string, newParentId: string | null, targetIndex?: number) => void;
   alignSelected: (alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => void;
   nudgeSelected: (dx: number, dy: number) => void;
@@ -732,6 +733,41 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         updatedAt: new Date().toISOString(),
       },
       selectedIds: childrenIds,
+    });
+    get().saveDraftToStorage();
+  },
+
+  convertToFrame: (id: string) => {
+    const { project } = get();
+    const node = project.nodes[id];
+    if (!node || node.type !== 'rectangle') return;
+
+    get().pushHistorySnapshot();
+
+    const newRole: FrameRole = node.parentId ? 'container' : 'wrapper';
+    const newName = node.name.replace(/Rectangle|Box/i, 'Frame').trim() || 'Frame Container';
+
+    const updatedNode: CanvasNode = {
+      ...node,
+      type: 'frame',
+      frameRole: newRole,
+      name: newName,
+      children: node.children || [],
+      style: {
+        ...node.style,
+        display: node.style.display || 'block',
+      },
+    };
+
+    set({
+      project: {
+        ...project,
+        nodes: {
+          ...project.nodes,
+          [id]: updatedNode,
+        },
+        updatedAt: new Date().toISOString(),
+      },
     });
     get().saveDraftToStorage();
   },

@@ -18,6 +18,7 @@ export const LayerPanel: React.FC = () => {
     setHoveredId,
     deleteSelected,
     duplicateSelected,
+    convertToFrame,
     addNode,
     reorderNode,
     theme,
@@ -242,6 +243,19 @@ export const LayerPanel: React.FC = () => {
 
           {/* Right: Visibility & Lock Actions */}
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-auto">
+            {node.type === 'rectangle' && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  convertToFrame(node.id);
+                }}
+                title="Convert Rectangle to Frame Container"
+                className="p-1 hover:bg-indigo-600/30 rounded text-slate-400 hover:text-indigo-400 transition"
+              >
+                <Layers className="w-3 h-3" />
+              </button>
+            )}
+
             <button
               onClick={(e) => {
                 e.stopPropagation();

@@ -183,6 +183,7 @@ export const PropertyInspector: React.FC = () => {
     updateNodeGeometry, 
     updateNodeStyle, 
     updateNode,
+    convertToFrame,
     bringToFront,
     sendToBack,
     moveUp,
@@ -388,6 +389,36 @@ export const PropertyInspector: React.FC = () => {
         </div>
 
         <div className="p-3 flex flex-col gap-4">
+        {/* RECTANGLE TO FRAME CONVERT OPTION */}
+        {selectedNode.type === 'rectangle' && (
+          <div className={`p-3 rounded-xl border flex flex-col gap-2 shadow-sm ${
+            isDark ? 'bg-indigo-950/40 border-indigo-500/30' : 'bg-indigo-50/80 border-indigo-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Layers className="w-4 h-4 text-indigo-400" />
+                <span className="text-xs font-semibold text-indigo-400">Konversi ke Frame</span>
+              </div>
+              <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold uppercase ${
+                isDark ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' : 'bg-indigo-100 text-indigo-700'
+              }`}>
+                Container
+              </span>
+            </div>
+            <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+              Ubah rectangle ini menjadi <strong>Frame Container</strong> agar dapat menampung elemen / teks / icon lain di dalamnya.
+            </p>
+            <button
+              type="button"
+              onClick={() => convertToFrame(selectedNode.id)}
+              className="w-full py-2 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center justify-center gap-2 transition shadow-md hover:shadow-indigo-500/25 active:scale-[0.98]"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Convert to Frame Container</span>
+            </button>
+          </div>
+        )}
+
         {/* FRAME SEMANTIC ROLE (WRAPPER / SECTION / CONTAINER) */}
         {selectedNode.type === 'frame' && (
           <section className={`flex flex-col gap-2 border-b pb-3 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
@@ -458,6 +489,131 @@ export const PropertyInspector: React.FC = () => {
                     <option value="contained">Contained Section (100% Max-Width)</option>
                     <option value="fit-content">Fit Content (Otomatis Isi)</option>
                   </select>
+                </div>
+
+                {/* FRAME BORDER RADIUS & CORNER SETTINGS */}
+                <div className={`mt-2 pt-2 border-t flex flex-col gap-2 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] text-slate-500 font-medium">Border Radius Frame</label>
+                    <span className="text-[9px] text-slate-500 font-mono">Max: {Math.round(Math.min(selectedNode.width, selectedNode.height) / 2)}px</span>
+                  </div>
+
+                  {/* Quick Radius Presets */}
+                  <div className="grid grid-cols-5 gap-1">
+                    {[
+                      { label: '0px', val: 0 },
+                      { label: '8px', val: 8 },
+                      { label: '16px', val: 16 },
+                      { label: '24px', val: 24 },
+                      { label: 'Pill', val: 9999 },
+                    ].map((preset) => {
+                      const maxRadius = Math.round(Math.min(selectedNode.width, selectedNode.height) / 2);
+                      const targetVal = Math.min(preset.val, maxRadius);
+                      const active = (style.borderRadius ?? 0) === targetVal;
+                      return (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          onClick={() => {
+                            updateNodeStyle(selectedNode.id, {
+                              borderRadius: targetVal,
+                              borderTopLeftRadius: targetVal,
+                              borderTopRightRadius: targetVal,
+                              borderBottomRightRadius: targetVal,
+                              borderBottomLeftRadius: targetVal,
+                            });
+                          }}
+                          className={`text-[9px] py-1 rounded border text-center transition ${
+                            active
+                              ? 'bg-indigo-600 text-white border-indigo-500 font-semibold shadow-sm'
+                              : isDark
+                              ? 'bg-slate-800 text-slate-300 border-slate-700 hover:border-indigo-500'
+                              : 'bg-slate-100 text-slate-700 border-slate-200'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Global Radius Slider & Input */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min="0"
+                      max={Math.round(Math.min(selectedNode.width, selectedNode.height) / 2)}
+                      value={style.borderRadius || 0}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        updateNodeStyle(selectedNode.id, {
+                          borderRadius: val,
+                          borderTopLeftRadius: val,
+                          borderTopRightRadius: val,
+                          borderBottomRightRadius: val,
+                          borderBottomLeftRadius: val,
+                        });
+                      }}
+                      className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                    <div className="w-16 shrink-0 flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="0"
+                        max={Math.round(Math.min(selectedNode.width, selectedNode.height) / 2)}
+                        value={style.borderRadius || 0}
+                        onChange={(e) => {
+                          const maxRadius = Math.round(Math.min(selectedNode.width, selectedNode.height) / 2);
+                          const val = Math.max(0, Math.min(maxRadius, Number(e.target.value)));
+                          updateNodeStyle(selectedNode.id, {
+                            borderRadius: val,
+                            borderTopLeftRadius: val,
+                            borderTopRightRadius: val,
+                            borderBottomRightRadius: val,
+                            borderBottomLeftRadius: val,
+                          });
+                        }}
+                        className={inputClass}
+                      />
+                      <span className="text-[10px] text-slate-500">px</span>
+                    </div>
+                  </div>
+
+                  {/* 4 Individual Corners for Frame */}
+                  <div className="mt-1">
+                    <label className="text-[10px] text-slate-500 block mb-1">Sudut Tiap Sisi (TL, TR, BR, BL)</label>
+                    <div className="grid grid-cols-4 gap-1">
+                      {([
+                        { key: 'borderTopLeftRadius' as const, label: 'TL', title: 'Top-Left Radius' },
+                        { key: 'borderTopRightRadius' as const, label: 'TR', title: 'Top-Right Radius' },
+                        { key: 'borderBottomRightRadius' as const, label: 'BR', title: 'Bottom-Right Radius' },
+                        { key: 'borderBottomLeftRadius' as const, label: 'BL', title: 'Bottom-Left Radius' },
+                      ] as const).map(({ key, label, title }) => {
+                        const maxRadius1 = Math.round(Math.min(selectedNode.width, selectedNode.height));
+                        return (
+                          <div key={key}>
+                            <input
+                              type="number"
+                              min="0"
+                              max={maxRadius1}
+                              placeholder={label}
+                              title={title}
+                              value={style[key] ?? style.borderRadius ?? 0}
+                              onChange={(e) => {
+                                const raw = Number(e.target.value);
+                                const val = Math.max(0, Math.min(maxRadius1, raw));
+                                updateNodeStyle(selectedNode.id, { [key]: val });
+                              }}
+                              className={`w-full text-center text-xs p-1 rounded border font-mono outline-none focus:border-indigo-500 ${
+                                isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                              }`}
+                            />
+                            <span className="text-[9px] text-slate-500 block text-center mt-0.5">{label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
 
                 {/* DEVICE SIZE TEMPLATES FOR WRAPPER UTAMA */}
