@@ -174,8 +174,15 @@ export const SVGCanvas: React.FC = () => {
 
       if (dragState.mode === 'crop-pan' && selectedNode) {
         const pos = screenToCanvasCoords(e.clientX, e.clientY);
-        const dx = pos.x - dragState.startX;
-        const dy = pos.y - dragState.startY;
+        let dx = pos.x - dragState.startX;
+        let dy = pos.y - dragState.startY;
+
+        // Shift = Horizontal only (Y locked), Ctrl = Vertical only (X locked)
+        if (e.shiftKey) {
+          dy = 0;
+        } else if (e.ctrlKey || e.metaKey) {
+          dx = 0;
+        }
 
         if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
           dragHasMovedRef.current = true;
@@ -207,8 +214,17 @@ export const SVGCanvas: React.FC = () => {
 
       if (dragState.mode === 'move' && (dragState.nodesStartGeom || (selectedNode && dragState.nodeStartGeom))) {
         const pos = screenToCanvasCoords(e.clientX, e.clientY);
-        const dx = pos.x - dragState.startX;
-        const dy = pos.y - dragState.startY;
+        let dx = pos.x - dragState.startX;
+        let dy = pos.y - dragState.startY;
+
+        // Axis Locking:
+        // 1. Shift held: Lock vertical axis (only move horizontal X / kanan-kiri, atas-bawah locked)
+        // 2. Ctrl / Meta held: Lock horizontal axis (only move vertical Y / atas-bawah, kanan-kiri locked)
+        if (e.shiftKey) {
+          dy = 0;
+        } else if (e.ctrlKey || e.metaKey) {
+          dx = 0;
+        }
 
         if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
           dragHasMovedRef.current = true;
