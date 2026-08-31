@@ -327,27 +327,31 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
     if (targetParentId !== undefined) {
       parentId = targetParentId;
-      insertIdx = targetIndex !== undefined ? targetIndex : 0;
+      if (targetIndex !== undefined) {
+        insertIdx = targetIndex;
+      } else if (parentId && project.nodes[parentId]) {
+        insertIdx = project.nodes[parentId]?.children?.length || 0;
+      } else {
+        insertIdx = project.rootNodeIds.length;
+      }
     } else if (selectedIds.length > 0) {
       const selectedNode = project.nodes[selectedIds[0]];
       if (selectedNode) {
         if (selectedNode.type === 'frame') {
-          // Selected layer is a frame / container (e.g. Phone-Wrapper)
-          // -> New node becomes a child inside this frame, at the top (index 0, above 'Bawaan 1')
+          // Selected layer is a frame / container -> Append as child at the end of children
           parentId = selectedNode.id;
-          insertIdx = targetIndex !== undefined ? targetIndex : 0;
+          insertIdx = targetIndex !== undefined ? targetIndex : (selectedNode.children ? selectedNode.children.length : 0);
         } else if (selectedNode.parentId && project.nodes[selectedNode.parentId]) {
-          // Selected layer is a child item inside a parent (e.g. Bawaan 1 inside Phone-Wrapper)
-          // -> New node is added inside the same parent container directly above this item
+          // Selected layer is a child item inside a parent -> Add inside the same parent after this item
           parentId = selectedNode.parentId;
           const parent = project.nodes[selectedNode.parentId];
           const siblingIdx = parent.children ? parent.children.indexOf(selectedNode.id) : -1;
-          insertIdx = targetIndex !== undefined ? targetIndex : (siblingIdx >= 0 ? siblingIdx : 0);
+          insertIdx = targetIndex !== undefined ? targetIndex : (siblingIdx >= 0 ? siblingIdx + 1 : (parent.children?.length || 0));
         } else {
           // Selected layer is at root level and is not a frame
           parentId = null;
           const rootIdx = project.rootNodeIds.indexOf(selectedNode.id);
-          insertIdx = targetIndex !== undefined ? targetIndex : (rootIdx >= 0 ? rootIdx : 0);
+          insertIdx = targetIndex !== undefined ? targetIndex : (rootIdx >= 0 ? rootIdx + 1 : project.rootNodeIds.length);
         }
       }
     }

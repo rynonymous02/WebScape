@@ -88,18 +88,24 @@ export const createNewNode = (
   const id = `node_${Math.random().toString(36).substring(2, 9)}`;
   let name = customName || `${type.charAt(0).toUpperCase() + type.slice(1)}`;
 
-  let style = createDefaultStyle({ position: 'relative' });
+  const isChild = Boolean(parentId);
+  let style = createDefaultStyle({
+    position: isChild ? 'absolute' : (type === 'frame' ? 'relative' : 'absolute'),
+    left: x,
+    top: y,
+  });
   let assignedRole: FrameRole | undefined = undefined;
 
   if (type === 'frame') {
     assignedRole = frameRole || (parentId ? 'container' : 'wrapper');
     style = createDefaultStyle({
-      position: 'relative',
+      position: isChild ? 'absolute' : 'relative',
+      left: x,
+      top: y,
       fill: '#ffffff',
       stroke: '#cbd5e1',
       strokeWidth: 1,
-      display: 'flex',
-      flexDirection: 'column',
+      display: 'block',
       paddingTop: 16,
       paddingRight: 16,
       paddingBottom: 16,
@@ -125,7 +131,9 @@ export const createNewNode = (
     if (!customName) name = 'Rectangle Box';
   } else if (type === 'text') {
     style = createDefaultStyle({
-      position: 'relative',
+      position: isChild ? 'absolute' : 'absolute',
+      left: x,
+      top: y,
       fill: 'transparent',
       textColor: '#0f172a',
       fontSize: 18,
@@ -143,7 +151,9 @@ export const createNewNode = (
     if (!customName) name = 'Circle Object';
   } else if (type === 'path') {
     style = createDefaultStyle({
-      position: 'relative',
+      position: isChild ? 'absolute' : 'absolute',
+      left: x,
+      top: y,
       fill: 'transparent',
       stroke: '#8b5cf6',
       strokeWidth: 3,
@@ -151,7 +161,9 @@ export const createNewNode = (
     if (!customName) name = 'Bezier Curve';
   } else if (type === 'image') {
     style = createDefaultStyle({
-      position: 'relative',
+      position: isChild ? 'absolute' : 'absolute',
+      left: x,
+      top: y,
       fill: 'transparent',
       borderRadius: 8,
       imageType: 'pixel',

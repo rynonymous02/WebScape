@@ -153,15 +153,11 @@ export const SVGCanvas: React.FC = () => {
         const x = Math.min(curRelX, dragState.drawStartPos.x);
         const y = Math.min(curRelY, dragState.drawStartPos.y);
         updateNodeGeometry(dragState.drawingNodeId, x, y, width, height, undefined, true);
-        updateNodeStyle(dragState.drawingNodeId, { left: x, top: y }, true);
+        updateNodeStyle(dragState.drawingNodeId, { left: x, top: y, position: 'absolute' }, true);
         return;
       }
 
       if (dragState.mode === 'move' && selectedNode && dragState.nodeStartGeom) {
-        if (selectedNode.parentId && selectedNode.style.position === 'static') {
-          return;
-        }
-
         const pos = screenToCanvasCoords(e.clientX, e.clientY);
         const dx = pos.x - dragState.startX;
         const dy = pos.y - dragState.startY;
@@ -183,19 +179,17 @@ export const SVGCanvas: React.FC = () => {
           true
         );
 
-        // Synchronize style.left & style.top for relative, absolute, sticky offsets
-        const posMode = selectedNode.style.position || (selectedNode.parentId ? 'static' : 'relative');
-        if (posMode === 'absolute' || posMode === 'fixed') {
+        // When moving a node on canvas, position absolutely so sibling elements never shift or glitch
+        if (selectedNode.parentId) {
           updateNodeStyle(selectedNode.id, {
+            position: 'absolute',
             left: newX,
             top: newY,
           }, true);
-        } else if (posMode === 'relative' || posMode === 'sticky') {
-          const startLeft = dragState.startStyleOffsets?.left ?? 0;
-          const startTop = dragState.startStyleOffsets?.top ?? 0;
+        } else {
           updateNodeStyle(selectedNode.id, {
-            left: Math.round(startLeft + dx),
-            top: Math.round(startTop + dy),
+            left: newX,
+            top: newY,
           }, true);
         }
         return;
@@ -601,7 +595,7 @@ export const SVGCanvas: React.FC = () => {
     };
 
     const isRoot = !node.parentId;
-    const posMode = isRoot ? 'relative' : (style.position || 'static');
+    const posMode = isRoot ? 'relative' : (style.position || 'absolute');
 
     let leftVal: string | undefined = undefined;
     let topVal: string | undefined = undefined;
