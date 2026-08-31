@@ -36,7 +36,7 @@ export function styleToBootstrapClasses(style: NodeStyle, node: CanvasNode): str
   // Position
   const isRoot = !node.parentId;
   if (!isRoot) {
-    const pos = style.position || 'static';
+    const pos = style.position || 'absolute';
     if (pos === 'sticky') {
       classes.push('sticky-top', 'z-3');
     } else if (pos === 'fixed') {

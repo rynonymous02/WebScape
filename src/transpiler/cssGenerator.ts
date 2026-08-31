@@ -31,30 +31,32 @@ export const generateRawCSS = (
 
     // Position handling
     if (!isRoot) {
-      const pos = s.position || 'static';
-      if (pos && pos !== 'static') {
+      const pos = s.position || 'absolute';
+      if (pos === 'sticky') {
+        rules.push(`  position: sticky;`);
+        rules.push(`  top: ${s.top !== undefined ? s.top : 0}px;`);
+        if (s.left !== undefined) rules.push(`  left: ${s.left}px;`);
+        if (s.right !== undefined) rules.push(`  right: ${s.right}px;`);
+        if (s.bottom !== undefined) rules.push(`  bottom: ${s.bottom}px;`);
+      } else if (pos === 'absolute' || pos === 'fixed') {
         rules.push(`  position: ${pos};`);
-        if (pos === 'sticky') {
-          rules.push(`  top: ${s.top !== undefined ? s.top : 0}px;`);
-          if (s.left !== undefined) rules.push(`  left: ${s.left}px;`);
-          if (s.right !== undefined) rules.push(`  right: ${s.right}px;`);
-          if (s.bottom !== undefined) rules.push(`  bottom: ${s.bottom}px;`);
-        } else if (pos === 'absolute' || pos === 'fixed') {
-          rules.push(`  left: ${s.left !== undefined ? s.left : node.x}px;`);
-          rules.push(`  top: ${s.top !== undefined ? s.top : node.y}px;`);
-          if (s.right !== undefined) rules.push(`  right: ${s.right}px;`);
-          if (s.bottom !== undefined) rules.push(`  bottom: ${s.bottom}px;`);
-        } else if (pos === 'relative') {
-          if (s.left !== undefined) rules.push(`  left: ${s.left}px;`);
-          if (s.top !== undefined) rules.push(`  top: ${s.top}px;`);
-          if (s.right !== undefined) rules.push(`  right: ${s.right}px;`);
-          if (s.bottom !== undefined) rules.push(`  bottom: ${s.bottom}px;`);
-        }
-        if (s.zIndex && s.zIndex > 1) {
-          rules.push(`  z-index: ${s.zIndex};`);
-        } else if (pos === 'sticky') {
-          rules.push(`  z-index: 50;`);
-        }
+        rules.push(`  left: ${s.left !== undefined ? s.left : node.x}px;`);
+        rules.push(`  top: ${s.top !== undefined ? s.top : node.y}px;`);
+        if (s.right !== undefined) rules.push(`  right: ${s.right}px;`);
+        if (s.bottom !== undefined) rules.push(`  bottom: ${s.bottom}px;`);
+      } else if (pos === 'relative') {
+        rules.push(`  position: relative;`);
+        if (s.left !== undefined) rules.push(`  left: ${s.left}px;`);
+        if (s.top !== undefined) rules.push(`  top: ${s.top}px;`);
+        if (s.right !== undefined) rules.push(`  right: ${s.right}px;`);
+        if (s.bottom !== undefined) rules.push(`  bottom: ${s.bottom}px;`);
+      } else if (pos === 'static') {
+        rules.push(`  position: static;`);
+      }
+      if (s.zIndex && s.zIndex > 1) {
+        rules.push(`  z-index: ${s.zIndex};`);
+      } else if (pos === 'sticky') {
+        rules.push(`  z-index: 50;`);
       }
     } else {
       rules.push(`  position: relative;`);
@@ -242,6 +244,9 @@ export const generateRawCSS = (
       if (s.textTransform && s.textTransform !== 'none') {
         rules.push(`  text-transform: ${s.textTransform};`);
       }
+      rules.push(`  margin: 0;`);
+      rules.push(`  white-space: pre-wrap;`);
+      rules.push(`  word-break: break-word;`);
     }
 
     // Image & Vector styling

@@ -17,7 +17,7 @@ export const generateTailwind = (
 
     // Position handling
     if (!isRoot) {
-      const pos = s.position || 'static';
+      const pos = s.position || 'absolute';
       if (pos && pos !== 'static') {
         classes.push(pos);
         if (pos === 'sticky') {
