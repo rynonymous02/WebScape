@@ -88,7 +88,16 @@ export function generateSVGExport(
 
     if (node.type === 'image') {
       if (node.style.imageType === 'vector' && node.style.svgContent) {
-        return `<g transform="translate(${rx}, ${ry})" opacity="${node.style.opacity}">${node.style.svgContent}</g>`;
+        const cleanSvg = node.style.svgContent.replace(/<svg\b([^>]*)>/i, (_match, p1) => {
+          let attr = p1;
+          if (!attr.includes('width=')) attr += ` width="${node.width}"`;
+          else attr = attr.replace(/width="[^"]*"/, `width="${node.width}"`);
+          if (!attr.includes('height=')) attr += ` height="${node.height}"`;
+          else attr = attr.replace(/height="[^"]*"/, `height="${node.height}"`);
+          if (!attr.includes('preserveAspectRatio=')) attr += ' preserveAspectRatio="xMidYMid meet"';
+          return `<svg ${attr}>`;
+        });
+        return `<g transform="translate(${rx}, ${ry})" opacity="${node.style.opacity}" fill="${node.style.vectorColor || 'currentColor'}" color="${node.style.vectorColor || 'currentColor'}">${cleanSvg}</g>`;
       }
       return `<image href="${node.style.imageUrl || ''}" x="${rx}" y="${ry}" width="${node.width}" height="${node.height}" preserveAspectRatio="xMidYMid slice" opacity="${node.style.opacity}" />`;
     }

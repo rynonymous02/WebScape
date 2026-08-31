@@ -217,7 +217,10 @@ export const generateTailwind = (
     if (node.type === 'image') {
       if (s.objectFit) classes.push(`object-${s.objectFit}`);
       if (s.blendMode && s.blendMode !== 'normal') classes.push(`mix-blend-${s.blendMode}`);
-      if (s.imageType === 'vector' && s.vectorColor) classes.push(`text-[${s.vectorColor}] fill-[${s.vectorColor}]`);
+      if (s.imageType === 'vector') {
+        classes.push('flex items-center justify-center [&>svg]:w-full [&>svg]:h-full');
+        if (s.vectorColor) classes.push(`text-[${s.vectorColor}] fill-[${s.vectorColor}]`);
+      }
     }
 
     return classes;
@@ -238,7 +241,16 @@ export const generateTailwind = (
 
     if (node.type === 'image') {
       if (node.style.imageType === 'vector' && node.style.svgContent) {
-        return `${spaces}<div class="${classList}">\n${spaces}  ${node.style.svgContent}\n${spaces}</div>`;
+        const cleanSvg = node.style.svgContent.replace(/<svg\b([^>]*)>/i, (_match, p1) => {
+          let attr = p1;
+          if (!attr.includes('width=')) attr += ' width="100%"';
+          else attr = attr.replace(/width="[^"]*"/, 'width="100%"');
+          if (!attr.includes('height=')) attr += ' height="100%"';
+          else attr = attr.replace(/height="[^"]*"/, 'height="100%"');
+          if (!attr.includes('preserveAspectRatio=')) attr += ' preserveAspectRatio="xMidYMid meet"';
+          return `<svg ${attr}>`;
+        });
+        return `${spaces}<div class="${classList}">\n${spaces}  ${cleanSvg}\n${spaces}</div>`;
       }
       return `${spaces}<img class="${classList}" src="${node.style.imageUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80'}" alt="${node.name}" />`;
     }

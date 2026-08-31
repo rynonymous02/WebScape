@@ -254,13 +254,22 @@ export const generateRawCSS = (
       if (s.blendMode && s.blendMode !== 'normal') {
         rules.push(`  mix-blend-mode: ${s.blendMode};`);
       }
-      if (s.imageType === 'vector' && s.vectorColor) {
-        rules.push(`  color: ${s.vectorColor};`);
-        rules.push(`  fill: ${s.vectorColor};`);
+      if (s.imageType === 'vector') {
+        rules.push(`  display: flex;`);
+        rules.push(`  align-items: center;`);
+        rules.push(`  justify-content: center;`);
+        if (s.vectorColor) {
+          rules.push(`  color: ${s.vectorColor};`);
+          rules.push(`  fill: ${s.vectorColor};`);
+        }
       }
     }
 
     cssRules.push(`.${className} {\n${rules.join('\n')}\n}`);
+
+    if (node.type === 'image' && s.imageType === 'vector') {
+      cssRules.push(`.${className} > svg {\n  width: 100%;\n  height: 100%;\n  display: block;\n  color: inherit;\n  fill: inherit;\n}`);
+    }
 
     if (node.children) {
       node.children.forEach((childId) => {
@@ -302,7 +311,16 @@ export const generateRawCSS = (
 
     if (node.type === 'image') {
       if (node.style.imageType === 'vector' && node.style.svgContent) {
-        return `${spaces}<div class="${className}">\n${spaces}  ${node.style.svgContent}\n${spaces}</div>`;
+        const cleanSvg = node.style.svgContent.replace(/<svg\b([^>]*)>/i, (_match, p1) => {
+          let attr = p1;
+          if (!attr.includes('width=')) attr += ' width="100%"';
+          else attr = attr.replace(/width="[^"]*"/, 'width="100%"');
+          if (!attr.includes('height=')) attr += ' height="100%"';
+          else attr = attr.replace(/height="[^"]*"/, 'height="100%"');
+          if (!attr.includes('preserveAspectRatio=')) attr += ' preserveAspectRatio="xMidYMid meet"';
+          return `<svg ${attr}>`;
+        });
+        return `${spaces}<div class="${className}">\n${spaces}  ${cleanSvg}\n${spaces}</div>`;
       }
       return `${spaces}<img class="${className}" src="${node.style.imageUrl || 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=800&auto=format&fit=crop&q=80'}" alt="${node.name}" />`;
     }
