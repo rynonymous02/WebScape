@@ -80,8 +80,8 @@ interface ProjectStoreState {
     targetIndex?: number
   ) => string;
   updateNode: (id: string, updates: Partial<CanvasNode>) => void;
-  updateNodeStyle: (id: string, styleUpdates: Partial<NodeStyle>) => void;
-  updateNodeGeometry: (id: string, x: number, y: number, width: number, height: number, rotation?: number) => void;
+  updateNodeStyle: (id: string, styleUpdates: Partial<NodeStyle>, skipHistory?: boolean) => void;
+  updateNodeGeometry: (id: string, x: number, y: number, width: number, height: number, rotation?: number, skipHistory?: boolean) => void;
   deleteSelected: () => void;
   duplicateSelected: () => void;
   groupSelected: () => void;
@@ -98,6 +98,7 @@ interface ProjectStoreState {
 
   // History
   pushHistorySnapshot: () => void;
+  pushCustomSnapshot: (snapshot: { nodes: Record<string, CanvasNode>; rootNodeIds: string[] }) => void;
   undo: () => void;
   redo: () => void;
 
@@ -285,8 +286,34 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       nodes: JSON.parse(JSON.stringify(project.nodes)),
       rootNodeIds: [...project.rootNodeIds],
     };
+    if (undoStack.length > 0) {
+      const last = undoStack[undoStack.length - 1];
+      if (
+        JSON.stringify(last.nodes) === JSON.stringify(snapshot.nodes) &&
+        JSON.stringify(last.rootNodeIds) === JSON.stringify(snapshot.rootNodeIds)
+      ) {
+        return;
+      }
+    }
     set({
-      undoStack: [...undoStack.slice(-30), snapshot],
+      undoStack: [...undoStack.slice(-50), snapshot],
+      redoStack: [],
+    });
+  },
+
+  pushCustomSnapshot: (snapshot) => {
+    const { undoStack } = get();
+    if (undoStack.length > 0) {
+      const last = undoStack[undoStack.length - 1];
+      if (
+        JSON.stringify(last.nodes) === JSON.stringify(snapshot.nodes) &&
+        JSON.stringify(last.rootNodeIds) === JSON.stringify(snapshot.rootNodeIds)
+      ) {
+        return;
+      }
+    }
+    set({
+      undoStack: [...undoStack.slice(-50), snapshot],
       redoStack: [],
     });
   },
@@ -379,11 +406,14 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     get().saveDraftToStorage();
   },
 
-  updateNodeStyle: (id, styleUpdates) => {
-    get().pushHistorySnapshot();
+  updateNodeStyle: (id, styleUpdates, skipHistory = false) => {
     const { project } = get();
     const node = project.nodes[id];
     if (!node) return;
+
+    if (!skipHistory) {
+      get().pushHistorySnapshot();
+    }
 
     const updatedNode = {
       ...node,
@@ -400,10 +430,14 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     get().saveDraftToStorage();
   },
 
-  updateNodeGeometry: (id, x, y, width, height, rotation) => {
+  updateNodeGeometry: (id, x, y, width, height, rotation, skipHistory = true) => {
     const { project } = get();
     const node = project.nodes[id];
     if (!node) return;
+
+    if (!skipHistory) {
+      get().pushHistorySnapshot();
+    }
 
     const updatedNode = {
       ...node,
@@ -576,16 +610,48 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       }
     });
 
-    const groupFrame = createNewNode('frame', minX, minY, maxX - minX, maxY - minY, null, 'Group Container');
+    const groupW = Math.max(10, maxX - minX);
+    const groupH = Math.max(10, maxY - minY);
+
+    // Create a neutral, transparent group container (like Inkscape <g> / frame-section)
+    const groupFrame = createNewNode('frame', minX, minY, groupW, groupH, null, 'Group Container', 'container');
+    groupFrame.style = {
+      ...groupFrame.style,
+      fill: 'transparent',
+      stroke: 'transparent',
+      strokeWidth: 0,
+      display: 'block',
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      gap: 0,
+      borderRadius: 0,
+      boxShadow: 'none',
+      backdropBlur: 0,
+      position: 'relative',
+    };
     groupFrame.children = [...selectedIds];
 
     const updatedNodes = { ...project.nodes, [groupFrame.id]: groupFrame };
 
     selectedIds.forEach((id) => {
       if (updatedNodes[id]) {
+        const childNode = updatedNodes[id];
+        // Calculate relative position within the group frame so visually nothing jumps
+        const relX = childNode.x - minX;
+        const relY = childNode.y - minY;
         updatedNodes[id] = {
-          ...updatedNodes[id],
+          ...childNode,
           parentId: groupFrame.id,
+          x: relX,
+          y: relY,
+          style: {
+            ...childNode.style,
+            position: 'absolute',
+            left: relX,
+            top: relY,
+          },
         };
       }
     });
@@ -612,18 +678,30 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     if (selectedIds.length !== 1) return;
 
     const groupNode = project.nodes[selectedIds[0]];
-    if (!groupNode || groupNode.children.length === 0) return;
+    if (!groupNode || !groupNode.children || groupNode.children.length === 0) return;
 
     get().pushHistorySnapshot();
 
     const updatedNodes = { ...project.nodes };
     const childrenIds = [...groupNode.children];
 
+    // Restore absolute coordinates
     childrenIds.forEach((cid) => {
       if (updatedNodes[cid]) {
+        const child = updatedNodes[cid];
+        const absX = groupNode.x + child.x;
+        const absY = groupNode.y + child.y;
         updatedNodes[cid] = {
-          ...updatedNodes[cid],
+          ...child,
           parentId: groupNode.parentId,
+          x: absX,
+          y: absY,
+          style: {
+            ...child.style,
+            position: groupNode.parentId ? child.style.position : 'relative',
+            left: absX,
+            top: absY,
+          },
         };
       }
     });
