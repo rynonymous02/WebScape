@@ -45,10 +45,8 @@ export const generateRawCSS = (
           if (s.right !== undefined) rules.push(`  right: ${s.right}px;`);
           if (s.bottom !== undefined) rules.push(`  bottom: ${s.bottom}px;`);
         } else if (pos === 'relative') {
-          const effX = s.left !== undefined ? s.left : node.x;
-          const effY = s.top !== undefined ? s.top : node.y;
-          if (effX !== 0) rules.push(`  left: ${effX}px;`);
-          if (effY !== 0) rules.push(`  top: ${effY}px;`);
+          if (s.left !== undefined) rules.push(`  left: ${s.left}px;`);
+          if (s.top !== undefined) rules.push(`  top: ${s.top}px;`);
           if (s.right !== undefined) rules.push(`  right: ${s.right}px;`);
           if (s.bottom !== undefined) rules.push(`  bottom: ${s.bottom}px;`);
         }

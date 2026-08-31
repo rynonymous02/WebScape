@@ -32,10 +32,8 @@ export const generateTailwind = (
           if (s.right !== undefined) classes.push(`right-[${s.right}px]`);
           if (s.bottom !== undefined) classes.push(`bottom-[${s.bottom}px]`);
         } else if (pos === 'relative') {
-          const effX = s.left !== undefined ? s.left : node.x;
-          const effY = s.top !== undefined ? s.top : node.y;
-          if (effX !== 0) classes.push(`left-[${effX}px]`);
-          if (effY !== 0) classes.push(`top-[${effY}px]`);
+          if (s.left !== undefined) classes.push(`left-[${s.left}px]`);
+          if (s.top !== undefined) classes.push(`top-[${s.top}px]`);
           if (s.right !== undefined) classes.push(`right-[${s.right}px]`);
           if (s.bottom !== undefined) classes.push(`bottom-[${s.bottom}px]`);
         }
