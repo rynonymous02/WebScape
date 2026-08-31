@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import type { CanvasNode } from '../../types/canvas';
 import { useProjectStore } from '../../store/useProjectStore';
 import { loadWebFont } from '../../utils/fontLoader';
 
@@ -107,6 +108,20 @@ export const SVGCanvas: React.FC = () => {
     startY: number;
     startRadius?: number;
     nodeStartGeom?: { x: number; y: number; width: number; height: number; rotation: number };
+    nodesStartGeom?: Record<
+      string,
+      {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        rotation: number;
+        parentId: string | null;
+        positionMode?: string;
+        startLeft?: number;
+        startTop?: number;
+      }
+    >;
     startStyleOffsets?: { left: number; top: number };
     drawStartPos?: { x: number; y: number };
     parentOffsetX?: number;
@@ -153,11 +168,11 @@ export const SVGCanvas: React.FC = () => {
         const x = Math.min(curRelX, dragState.drawStartPos.x);
         const y = Math.min(curRelY, dragState.drawStartPos.y);
         updateNodeGeometry(dragState.drawingNodeId, x, y, width, height, undefined, true);
-        updateNodeStyle(dragState.drawingNodeId, { left: x, top: y, position: 'absolute' }, true);
+        updateNodeStyle(dragState.drawingNodeId, { left: x, top: y }, true);
         return;
       }
 
-      if (dragState.mode === 'move' && selectedNode && dragState.nodeStartGeom) {
+      if (dragState.mode === 'move' && (dragState.nodesStartGeom || (selectedNode && dragState.nodeStartGeom))) {
         const pos = screenToCanvasCoords(e.clientX, e.clientY);
         const dx = pos.x - dragState.startX;
         const dy = pos.y - dragState.startY;
@@ -166,31 +181,44 @@ export const SVGCanvas: React.FC = () => {
           dragHasMovedRef.current = true;
         }
 
-        const newX = dragState.nodeStartGeom.x + dx;
-        const newY = dragState.nodeStartGeom.y + dy;
+        if (dragState.nodesStartGeom && Object.keys(dragState.nodesStartGeom).length > 0) {
+          Object.entries(dragState.nodesStartGeom).forEach(([nodeId, startGeom]) => {
+            const newX = startGeom.x + dx;
+            const newY = startGeom.y + dy;
 
-        updateNodeGeometry(
-          selectedNode.id,
-          newX,
-          newY,
-          dragState.nodeStartGeom.width,
-          dragState.nodeStartGeom.height,
-          dragState.nodeStartGeom.rotation,
-          true
-        );
+            updateNodeGeometry(
+              nodeId,
+              newX,
+              newY,
+              startGeom.width,
+              startGeom.height,
+              startGeom.rotation,
+              true
+            );
 
-        // When moving a node on canvas, position absolutely so sibling elements never shift or glitch
-        if (selectedNode.parentId) {
-          updateNodeStyle(selectedNode.id, {
-            position: 'absolute',
-            left: newX,
-            top: newY,
-          }, true);
-        } else {
-          updateNodeStyle(selectedNode.id, {
-            left: newX,
-            top: newY,
-          }, true);
+            // PRESERVE ORIGINAL POSITION: Never force static or relative to become absolute!
+            const posMode = startGeom.positionMode || (startGeom.parentId ? 'static' : 'relative');
+            if (posMode === 'absolute' || posMode === 'fixed') {
+              updateNodeStyle(nodeId, {
+                left: newX,
+                top: newY,
+              }, true);
+            } else if (posMode === 'relative' || posMode === 'sticky') {
+              const startLeft = startGeom.startLeft ?? 0;
+              const startTop = startGeom.startTop ?? 0;
+              updateNodeStyle(nodeId, {
+                left: Math.round(startLeft + dx),
+                top: Math.round(startTop + dy),
+              }, true);
+            } else if (posMode === 'static') {
+              // Static node in container: Keep position static without forcing absolute
+            } else {
+              updateNodeStyle(nodeId, {
+                left: newX,
+                top: newY,
+              }, true);
+            }
+          });
         }
         return;
       }
@@ -529,48 +557,28 @@ export const SVGCanvas: React.FC = () => {
         return;
       }
 
-      // Inkscape / Figma group hierarchical selection:
-      // - If holding Ctrl / Cmd (deep selection) -> select clicked child directly
-      // - If clicking on an already selected node -> stay on this node
-      // - If inside a group whose parent/ancestor is already selected -> enter group and select this child
-      // - Otherwise -> select top-level parent group
-      let targetNode = node;
-      if (!e.ctrlKey && !e.metaKey && node.parentId && !selectedIds.includes(node.id)) {
-        let curr = node;
-        let topGroup = node;
-        let parentAlreadySelected = false;
+      // Visual front-most priority: Select the clicked element directly
+      const targetNode = node;
 
-        while (curr.parentId && project.nodes[curr.parentId]) {
-          const parent = project.nodes[curr.parentId];
-          if (selectedIds.includes(parent.id)) {
-            parentAlreadySelected = true;
-            break;
-          }
-          topGroup = parent;
-          curr = parent;
-        }
-
-        if (!parentAlreadySelected) {
-          targetNode = topGroup;
-        }
-      }
-
-      const isTargetSelected = selectedIds.includes(targetNode.id);
-      const targetStyle = targetNode.style;
-
-      if (!isTargetSelected) {
-        setSelectionMode('transform');
-        if (e.shiftKey) {
-          setSelectedIds([...selectedIds, targetNode.id]);
+      let nextSelectedIds: string[];
+      if (e.shiftKey) {
+        // Shift + Click toggles selection for multi-select
+        if (selectedIds.includes(targetNode.id)) {
+          nextSelectedIds = selectedIds.filter((id) => id !== targetNode.id);
         } else {
-          setSelectedIds([targetNode.id]);
+          nextSelectedIds = [...selectedIds, targetNode.id];
         }
+        setSelectedIds(nextSelectedIds);
+        setSelectionMode('transform');
       } else {
-        // Second click on already selected rectangle, frame, or pixel image toggles to radius mode
-        // Vector objects do NOT have border radius editing on double click
-        const isVector = targetNode.type === 'image' && (targetStyle.imageType === 'vector' || Boolean(targetStyle.svgContent));
-        if (!isVector && (targetNode.type === 'rectangle' || targetNode.type === 'frame' || targetNode.type === 'image')) {
-          setSelectionMode((prev) => (prev === 'transform' ? 'radius' : 'transform'));
+        // Normal click:
+        // If clicking on an element that is ALREADY in the multi-selection, keep multi-selection active for group dragging!
+        if (selectedIds.includes(targetNode.id)) {
+          nextSelectedIds = selectedIds;
+        } else {
+          nextSelectedIds = [targetNode.id];
+          setSelectedIds(nextSelectedIds);
+          setSelectionMode('transform');
         }
       }
 
@@ -581,16 +589,34 @@ export const SVGCanvas: React.FC = () => {
       dragHasMovedRef.current = false;
 
       const pos = screenToCanvasCoords(e.clientX, e.clientY);
-      const isRelOrSticky = targetStyle.position === 'relative' || targetStyle.position === 'sticky';
+
+      // Build start geometry map for all active selected nodes
+      const activeIdsToDrag = nextSelectedIds.length > 0 ? nextSelectedIds : [targetNode.id];
+      const nodesStartGeom: Record<string, { x: number; y: number; width: number; height: number; rotation: number; parentId: string | null; positionMode?: string; startLeft?: number; startTop?: number }> = {};
+      activeIdsToDrag.forEach((id) => {
+        const n = project.nodes[id];
+        if (n) {
+          const isRelOrSticky = n.style.position === 'relative' || n.style.position === 'sticky';
+          nodesStartGeom[id] = {
+            x: n.x,
+            y: n.y,
+            width: n.width,
+            height: n.height,
+            rotation: n.rotation,
+            parentId: n.parentId,
+            positionMode: n.style.position,
+            startLeft: n.style.left !== undefined ? n.style.left : (n.parentId ? (isRelOrSticky ? 0 : n.x) : n.x),
+            startTop: n.style.top !== undefined ? n.style.top : (n.parentId ? (isRelOrSticky ? 0 : n.y) : n.y),
+          };
+        }
+      });
+
       setDragState({
         mode: 'move',
         startX: pos.x,
         startY: pos.y,
         nodeStartGeom: { x: targetNode.x, y: targetNode.y, width: targetNode.width, height: targetNode.height, rotation: targetNode.rotation },
-        startStyleOffsets: {
-          left: targetStyle.left !== undefined ? targetStyle.left : (targetNode.parentId ? (isRelOrSticky ? 0 : targetNode.x) : targetNode.x),
-          top: targetStyle.top !== undefined ? targetStyle.top : (targetNode.parentId ? (isRelOrSticky ? 0 : targetNode.y) : targetNode.y),
-        },
+        nodesStartGeom,
       });
     };
 
@@ -1029,25 +1055,132 @@ export const SVGCanvas: React.FC = () => {
 
   // Handles for Selected Bounding Box (1:1 precision without desync)
   const renderBoundingBox = () => {
-    if (activeTool !== 'select' || !selectedNode || !containerRef.current) return null;
+    if (activeTool !== 'select' || selectedIds.length === 0 || !containerRef.current) return null;
 
-    let absX = selectedNode.x;
-    let absY = selectedNode.y;
-    let width = selectedNode.width;
-    let height = selectedNode.height;
-
-    // For nested child nodes, measure actual rendered position inside parent frame
-    if (selectedNode.parentId) {
-      const domEl = document.getElementById(selectedNode.id);
-      if (domEl && containerRef.current) {
-        const containerRect = containerRef.current.getBoundingClientRect();
-        const elRect = domEl.getBoundingClientRect();
-        absX = (elRect.left - containerRect.left - canvasTransform.panX) / canvasTransform.zoom;
-        absY = (elRect.top - containerRect.top - canvasTransform.panY) / canvasTransform.zoom;
-        width = elRect.width / canvasTransform.zoom;
-        height = elRect.height / canvasTransform.zoom;
+    const getNodeAbsBounds = (n: CanvasNode) => {
+      let absX = n.x;
+      let absY = n.y;
+      let width = n.width;
+      let height = n.height;
+      if (n.parentId && containerRef.current) {
+        const domEl = document.getElementById(n.id);
+        if (domEl) {
+          const containerRect = containerRef.current.getBoundingClientRect();
+          const elRect = domEl.getBoundingClientRect();
+          absX = (elRect.left - containerRect.left - canvasTransform.panX) / canvasTransform.zoom;
+          absY = (elRect.top - containerRect.top - canvasTransform.panY) / canvasTransform.zoom;
+          width = elRect.width / canvasTransform.zoom;
+          height = elRect.height / canvasTransform.zoom;
+        }
       }
+      return { absX, absY, width, height };
+    };
+
+    const handleBoundingBoxPointerDown = (e: React.PointerEvent) => {
+      if (e.button === 1 || isSpacePressed || isPanning) {
+        handleBackgroundPointerDown(e);
+        return;
+      }
+      if (e.button !== 0) return;
+
+      e.stopPropagation();
+      dragStartSnapshotRef.current = {
+        nodes: JSON.parse(JSON.stringify(project.nodes)),
+        rootNodeIds: [...project.rootNodeIds],
+      };
+      dragHasMovedRef.current = false;
+
+      const pos = screenToCanvasCoords(e.clientX, e.clientY);
+      const activeIds = selectedIds.length > 0 ? selectedIds : (selectedNode ? [selectedNode.id] : []);
+      const nodesStartGeom: Record<string, { x: number; y: number; width: number; height: number; rotation: number; parentId: string | null; positionMode?: string; startLeft?: number; startTop?: number }> = {};
+      activeIds.forEach((id) => {
+        const n = project.nodes[id];
+        if (n) {
+          const isRelOrSticky = n.style.position === 'relative' || n.style.position === 'sticky';
+          nodesStartGeom[id] = {
+            x: n.x,
+            y: n.y,
+            width: n.width,
+            height: n.height,
+            rotation: n.rotation,
+            parentId: n.parentId,
+            positionMode: n.style.position,
+            startLeft: n.style.left !== undefined ? n.style.left : (n.parentId ? (isRelOrSticky ? 0 : n.x) : n.x),
+            startTop: n.style.top !== undefined ? n.style.top : (n.parentId ? (isRelOrSticky ? 0 : n.y) : n.y),
+          };
+        }
+      });
+
+      setDragState({
+        mode: 'move',
+        startX: pos.x,
+        startY: pos.y,
+        nodeStartGeom: selectedNode ? {
+          x: selectedNode.x,
+          y: selectedNode.y,
+          width: selectedNode.width,
+          height: selectedNode.height,
+          rotation: selectedNode.rotation,
+        } : undefined,
+        nodesStartGeom,
+      });
+    };
+
+    // Multi-Selection Bounding Box & Outlines
+    if (selectedIds.length > 1) {
+      const boundsList = selectedIds
+        .map((id) => {
+          const n = project.nodes[id];
+          return n ? { node: n, ...getNodeAbsBounds(n) } : null;
+        })
+        .filter((b): b is { node: CanvasNode; absX: number; absY: number; width: number; height: number } => b !== null);
+
+      if (boundsList.length === 0) return null;
+
+      const minX = Math.min(...boundsList.map((b) => b.absX));
+      const minY = Math.min(...boundsList.map((b) => b.absY));
+      const maxX = Math.max(...boundsList.map((b) => b.absX + b.width));
+      const maxY = Math.max(...boundsList.map((b) => b.absY + b.height));
+      const totalWidth = maxX - minX;
+      const totalHeight = maxY - minY;
+
+      return (
+        <g className="multi-select-group">
+          {/* Individual selection highlights */}
+          {boundsList.map((b) => (
+            <rect
+              key={`multi_hl_${b.node.id}`}
+              x={b.absX}
+              y={b.absY}
+              width={b.width}
+              height={b.height}
+              fill="none"
+              stroke="#6366f1"
+              strokeWidth={1.5 / canvasTransform.zoom}
+              strokeDasharray="4 4"
+              style={{ pointerEvents: 'none' }}
+            />
+          ))}
+
+          {/* Group Bounding Box - Draggable */}
+          <rect
+            x={minX}
+            y={minY}
+            width={totalWidth}
+            height={totalHeight}
+            fill="rgba(99, 102, 241, 0.04)"
+            stroke="#4f46e5"
+            strokeWidth={1.5 / canvasTransform.zoom}
+            className="cursor-move"
+            style={{ pointerEvents: 'all' }}
+            onPointerDown={handleBoundingBoxPointerDown}
+          />
+        </g>
+      );
     }
+
+    if (!selectedNode) return null;
+    const { absX, absY, width, height } = getNodeAbsBounds(selectedNode);
 
     const handles: TransformHandle[] = [
       { id: 'tl', cursor: 'nwse-resize', x: absX, y: absY },
@@ -1064,41 +1197,6 @@ export const SVGCanvas: React.FC = () => {
     const rotY = absY - 25;
 
     const isMovable = !selectedNode.parentId || selectedNode.style.position !== 'static';
-
-    const handleBoundingBoxPointerDown = (e: React.PointerEvent) => {
-      if (e.button === 1 || isSpacePressed || isPanning) {
-        handleBackgroundPointerDown(e);
-        return;
-      }
-      if (e.button !== 0) return;
-
-      e.stopPropagation();
-      if (!isMovable) return;
-      dragStartSnapshotRef.current = {
-        nodes: JSON.parse(JSON.stringify(project.nodes)),
-        rootNodeIds: [...project.rootNodeIds],
-      };
-      dragHasMovedRef.current = false;
-
-      const pos = screenToCanvasCoords(e.clientX, e.clientY);
-      const isRelOrSticky = selectedNode.style.position === 'relative' || selectedNode.style.position === 'sticky';
-      setDragState({
-        mode: 'move',
-        startX: pos.x,
-        startY: pos.y,
-        nodeStartGeom: {
-          x: selectedNode.x,
-          y: selectedNode.y,
-          width: selectedNode.width,
-          height: selectedNode.height,
-          rotation: selectedNode.rotation,
-        },
-        startStyleOffsets: {
-          left: selectedNode.style.left !== undefined ? selectedNode.style.left : (selectedNode.parentId ? (isRelOrSticky ? 0 : selectedNode.x) : selectedNode.x),
-          top: selectedNode.style.top !== undefined ? selectedNode.style.top : (selectedNode.parentId ? (isRelOrSticky ? 0 : selectedNode.y) : selectedNode.y),
-        },
-      });
-    };
 
     const handleResizeDown = (handleId: string) => (e: React.PointerEvent) => {
       if (e.button === 1 || isSpacePressed || isPanning) {
